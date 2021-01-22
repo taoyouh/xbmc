@@ -9,7 +9,7 @@
 
 #include "ServiceBroker.h"
 #include "addons/AddonManager.h"
-#include "addons/settings/GUIDialogAddonSettings.h"
+#include "addons/gui/GUIDialogAddonSettings.h"
 #include "dialogs/GUIDialogKaiToast.h"
 #include "dialogs/GUIDialogYesNo.h"
 #include "guilib/GUIComponent.h"
@@ -20,6 +20,8 @@
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
 #include "utils/log.h"
+
+#include <utility>
 
 using namespace KODI::MESSAGING;
 
@@ -42,13 +44,13 @@ CAddonStatusHandler::CAddonStatusHandler(const std::string &addonID, ADDON_STATU
 {
   //! @todo The status handled CAddonStatusHandler by is related to the class, not the instance
   //! having CAddonMgr construct an instance makes no sense
-  if (!CServiceBroker::GetAddonMgr().GetAddon(addonID, m_addon))
+  if (!CServiceBroker::GetAddonMgr().GetAddon(addonID, m_addon, ADDON_UNKNOWN, OnlyEnabled::YES))
     return;
 
   CLog::Log(LOGINFO, "Called Add-on status handler for '%u' of clientName:%s, clientID:%s (same Thread=%s)", status, m_addon->Name().c_str(), m_addon->ID().c_str(), sameThread ? "yes" : "no");
 
   m_status  = status;
-  m_message = message;
+  m_message = std::move(message);
 
   if (sameThread)
   {

@@ -33,7 +33,6 @@
 
 #include "platform/win32/CharsetConverter.h"
 #include "platform/win32/input/IRServerSuite.h"
-#include "platform/win32/powermanagement/Win32PowerSyscall.h"
 
 #include <algorithm>
 
@@ -72,7 +71,6 @@ CWinSystemWin32::CWinSystemWin32()
   AE::CAESinkFactory::ClearSinks();
   CAESinkDirectSound::Register();
   CAESinkWASAPI::Register();
-  CWin32PowerSyscall::Register();
   CScreenshotSurfaceWindows::Register();
 
   if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_bScanIRServer)
@@ -363,7 +361,7 @@ void CWinSystemWin32::AdjustWindow(bool forceResize)
 
     if (!m_ValidWindowedPosition || hMon == nullptr || hMon != hMon2)
     {
-      RECT newScreenRect = ScreenRect(m_hMonitor);
+      RECT newScreenRect = ScreenRect(hMon2);
       rc.left = m_nLeft = newScreenRect.left + ((newScreenRect.right - newScreenRect.left) / 2) - (m_nWidth / 2);
       rc.top = m_nTop = newScreenRect.top + ((newScreenRect.bottom - newScreenRect.top) / 2) - (m_nHeight / 2);
       rc.right = m_nLeft + m_nWidth;

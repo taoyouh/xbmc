@@ -9,7 +9,7 @@
 #include "PVRRecording.h"
 
 #include "ServiceBroker.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "addons/kodi-dev-kit/include/kodi/c-api/addon-instance/pvr/pvr_recordings.h"
 #include "guilib/LocalizeStrings.h"
 #include "pvr/PVRManager.h"
 #include "pvr/addons/PVRClient.h"
@@ -97,7 +97,8 @@ CPVRRecording::CPVRRecording(const PVR_RECORDING& recording, unsigned int iClien
   if (strlen(recording.strFirstAired) > 0)
     m_firstAired.SetFromW3CDateTime(recording.strFirstAired);
   m_iFlags = recording.iFlags;
-  m_sizeInBytes = recording.sizeInBytes;
+  if (recording.sizeInBytes >= 0)
+    m_sizeInBytes = recording.sizeInBytes;
 
   SetGenre(recording.iGenreType, recording.iGenreSubType, recording.strGenreDescription);
   CVideoInfoTag::SetPlayCount(recording.iPlayCount);
@@ -200,6 +201,8 @@ void CPVRRecording::Serialize(CVariant& value) const
     value["art"]["thumb"] = m_strThumbnailPath;
   if (!m_strFanartPath.empty())
     value["art"]["fanart"] = m_strFanartPath;
+
+  value["clientid"] = m_iClientId;
 }
 
 void CPVRRecording::ToSortable(SortItem& sortable, Field field) const
@@ -580,6 +583,22 @@ CDateTime CPVRRecording::FirstAired() const
   return m_firstAired;
 }
 
+void CPVRRecording::SetYear(int year)
+{
+  if (year > 0)
+    m_premiered = CDateTime(year, 1, 1, 0, 0, 0);
+}
+
+int CPVRRecording::GetYear() const
+{
+  return m_premiered.GetYear();
+}
+
+bool CPVRRecording::HasYear() const
+{
+  return m_premiered.IsValid();
+}
+
 bool CPVRRecording::IsNew() const
 {
   return (m_iFlags & PVR_RECORDING_FLAG_IS_NEW) > 0;
@@ -604,10 +623,4 @@ int64_t CPVRRecording::GetSizeInBytes() const
 {
   CSingleLock lock(m_critSection);
   return m_sizeInBytes;
-}
-
-void CPVRRecording::SetSizeInBytes(int64_t sizeInBytes)
-{
-  CSingleLock lock(m_critSection);
-  m_sizeInBytes = sizeInBytes;
 }

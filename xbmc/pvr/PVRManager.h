@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "addons/kodi-dev-kit/include/kodi/c-api/addon-instance/pvr/pvr_general.h"
 #include "interfaces/IAnnouncer.h"
 #include "pvr/epg/EpgContainer.h"
 #include "pvr/guilib/PVRGUIActionListener.h"
@@ -75,6 +75,7 @@ namespace PVR
     EpgContainer,
     EpgItemUpdate,
     EpgUpdatePending,
+    EpgDeleted,
 
     // Item events
     CurrentItem,
@@ -97,7 +98,10 @@ namespace PVR
      */
     ~CPVRManager() override;
 
-    void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char* sender, const char* message, const CVariant& data) override;
+    void Announce(ANNOUNCEMENT::AnnouncementFlag flag,
+                  const std::string& sender,
+                  const std::string& message,
+                  const CVariant& data) override;
 
     /*!
      * @brief Get the channel groups container.
@@ -168,7 +172,7 @@ namespace PVR
     /*!
      * @brief Stop PVRManager.
      */
-    void Stop();
+    void Stop(bool bRestart = false);
 
     /*!
      * @brief Stop PVRManager, unload data.
@@ -241,19 +245,19 @@ namespace PVR
      * @brief Inform PVR manager that playback of an item just started.
      * @param item The item that started to play.
      */
-    void OnPlaybackStarted(const std::shared_ptr<CFileItem> item);
+    void OnPlaybackStarted(const std::shared_ptr<CFileItem>& item);
 
     /*!
      * @brief Inform PVR manager that playback of an item was stopped due to user interaction.
      * @param item The item that stopped to play.
      */
-    void OnPlaybackStopped(const std::shared_ptr<CFileItem> item);
+    void OnPlaybackStopped(const std::shared_ptr<CFileItem>& item);
 
     /*!
      * @brief Inform PVR manager that playback of an item has stopped without user interaction.
      * @param item The item that ended to play.
      */
-    void OnPlaybackEnded(const std::shared_ptr<CFileItem> item);
+    void OnPlaybackEnded(const std::shared_ptr<CFileItem>& item);
 
     /*!
      * @brief Let the background thread create epg tags for all channels.
@@ -433,7 +437,7 @@ namespace PVR
 
     CEventSource<PVREvent> m_events;
 
-    std::shared_ptr<CPVRPlaybackState> m_playbackState;
+    const std::shared_ptr<CPVRPlaybackState> m_playbackState;
 
     CPVRGUIActionListener m_actionListener;
     CPVRSettings m_settings;

@@ -8,32 +8,47 @@
 
 #include "AddonManagementEvent.h"
 
-#include "addons/GUIDialogAddonInfo.h"
+#include "addons/gui/GUIDialogAddonInfo.h"
 #include "filesystem/AddonsDirectory.h"
 #include "guilib/LocalizeStrings.h"
 #include "utils/URIUtils.h"
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, const CVariant& description)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             const CVariant& description)
   : CAddonEvent(addon, description)
 { }
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, const CVariant& description, const CVariant& details)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             const CVariant& description,
+                                             const CVariant& details)
   : CAddonEvent(addon, description, details)
 { }
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, const CVariant& description, const CVariant& details, const CVariant& executionLabel)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             const CVariant& description,
+                                             const CVariant& details,
+                                             const CVariant& executionLabel)
   : CAddonEvent(addon, description, details, executionLabel)
 { }
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, EventLevel level, const CVariant& description)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             EventLevel level,
+                                             const CVariant& description)
   : CAddonEvent(addon, level, description)
 { }
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, EventLevel level, const CVariant& description, const CVariant& details)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             EventLevel level,
+                                             const CVariant& description,
+                                             const CVariant& details)
   : CAddonEvent(addon, level, description, details)
 { }
 
-CAddonManagementEvent::CAddonManagementEvent(ADDON::AddonPtr addon, EventLevel level, const CVariant& description, const CVariant& details, const CVariant& executionLabel)
+CAddonManagementEvent::CAddonManagementEvent(const ADDON::AddonPtr& addon,
+                                             EventLevel level,
+                                             const CVariant& description,
+                                             const CVariant& details,
+                                             const CVariant& executionLabel)
   : CAddonEvent(addon, level, description, details, executionLabel)
 { }
 

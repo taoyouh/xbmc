@@ -234,6 +234,7 @@ CAEDeviceInfo CAESinkAUDIOTRACK::m_info_raw;
 bool CAESinkAUDIOTRACK::m_hasIEC = false;
 std::set<unsigned int> CAESinkAUDIOTRACK::m_sink_sampleRates;
 bool CAESinkAUDIOTRACK::m_sinkSupportsFloat = false;
+bool CAESinkAUDIOTRACK::m_sinkSupportsMultiChannelFloat = false;
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 CAESinkAUDIOTRACK::CAESinkAUDIOTRACK()
@@ -262,27 +263,32 @@ bool CAESinkAUDIOTRACK::VerifySinkConfiguration(int sampleRate,
                                                 bool isRaw)
 {
   int minBufferSize = CJNIAudioTrack::getMinBufferSize(sampleRate, channelMask, encoding);
-  if (minBufferSize < 0)
-    return false;
+  bool supported = (minBufferSize > 0);
 
   // make sure to have enough buffer as minimum might not be enough to open
   if (!isRaw)
     minBufferSize *= 4;
 
-  jni::CJNIAudioTrack *jniAt = CreateAudioTrack(CJNIAudioManager::STREAM_MUSIC, sampleRate, channelMask, encoding, minBufferSize);
-
-  bool success = (jniAt && jniAt->getState() == CJNIAudioTrack::STATE_INITIALIZED);
-
-  // Deinitialize
-  if (jniAt)
+  if (supported)
   {
-    jniAt->stop();
-    jniAt->flush();
-    jniAt->release();
-    delete jniAt;
+    jni::CJNIAudioTrack* jniAt = CreateAudioTrack(CJNIAudioManager::STREAM_MUSIC, sampleRate,
+                                                  channelMask, encoding, minBufferSize);
+    supported = (jniAt && jniAt->getState() == CJNIAudioTrack::STATE_INITIALIZED);
+    if (supported)
+    {
+      jniAt->pause();
+      jniAt->flush();
+    }
+
+    if (jniAt)
+    {
+      jniAt->release();
+      delete jniAt;
+    }
   }
-  usleep(50 * 1000); // Enumeration only, reduce pressure while starting
-  return success;
+  CLog::Log(LOGDEBUG, "VerifySinkConfiguration samplerate: %d mask: %d encoding: %d success: %s",
+            sampleRate, channelMask, encoding, supported ? "true" : "false");
+  return supported;
 }
 
 
@@ -379,7 +385,12 @@ bool CAESinkAUDIOTRACK::Initialize(AEAudioFormat &format, std::string &device)
   {
     m_passthrough = false;
     m_format.m_sampleRate     = m_sink_sampleRate;
-    if (m_sinkSupportsFloat && m_format.m_channelLayout.Count() == 2)
+    if (m_sinkSupportsMultiChannelFloat)
+    {
+      m_encoding = CJNIAudioFormat::ENCODING_PCM_FLOAT;
+      m_format.m_dataFormat     = AE_FMT_FLOAT;
+    }
+    else if (m_sinkSupportsFloat && m_format.m_channelLayout.Count() == 2)
     {
       m_encoding = CJNIAudioFormat::ENCODING_PCM_FLOAT;
       m_format.m_dataFormat     = AE_FMT_FLOAT;
@@ -869,8 +880,12 @@ void CAESinkAUDIOTRACK::Drain()
     return;
 
   CLog::Log(LOGDEBUG, "Draining Audio");
-  m_at_jni->stop();
-  m_at_jni->pause();
+  if (IsInitialized())
+  {
+    m_at_jni->stop();
+    // stay ready
+    m_at_jni->pause();
+  }
   m_duration_written = 0;
   m_headPos = 0;
   m_timestampPos = 0;
@@ -1061,12 +1076,21 @@ void CAESinkAUDIOTRACK::UpdateAvailablePCMCapabilities()
 
   int encoding = CJNIAudioFormat::ENCODING_PCM_16BIT;
   m_sinkSupportsFloat = VerifySinkConfiguration(native_sampleRate, CJNIAudioFormat::CHANNEL_OUT_STEREO, CJNIAudioFormat::ENCODING_PCM_FLOAT);
+  // Only try for Android 7 or later - there are a lot of old devices that open successfully
+  // but won't work correctly under the hood (famouse example: old FireTV)
+  // As even newish devices like Android Chromecast don't do it properly - just disable it ... and use 16 bit Integer
+  //if (CJNIAudioManager::GetSDKVersion() > 23)
+  //  m_sinkSupportsMultiChannelFloat = VerifySinkConfiguration(native_sampleRate, CJNIAudioFormat::CHANNEL_OUT_7POINT1_SURROUND, CJNIAudioFormat::ENCODING_PCM_FLOAT);
 
   if (m_sinkSupportsFloat)
   {
     encoding = CJNIAudioFormat::ENCODING_PCM_FLOAT;
     m_info.m_dataFormats.push_back(AE_FMT_FLOAT);
     CLog::Log(LOGINFO, "Float is supported");
+  }
+  if (m_sinkSupportsMultiChannelFloat)
+  {
+    CLog::Log(LOGINFO, "Multi channel Float is supported");
   }
 
   int test_sample[] = { 32000, 44100, 48000, 88200, 96000, 176400, 192000 };

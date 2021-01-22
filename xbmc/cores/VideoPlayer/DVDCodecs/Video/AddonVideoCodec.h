@@ -11,7 +11,7 @@
 #include "DVDVideoCodec.h"
 #include "addons/AddonProvider.h"
 #include "addons/binary-addons/AddonInstanceHandler.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/VideoCodec.h"
+#include "addons/kodi-dev-kit/include/kodi/addon-instance/VideoCodec.h"
 
 class BufferPool;
 
@@ -21,7 +21,7 @@ class CAddonVideoCodec
 {
 public:
   CAddonVideoCodec(CProcessInfo& processInfo,
-                   ADDON::BinaryAddonBasePtr& addonInfo,
+                   ADDON::AddonInfoPtr& addonInfo,
                    KODI_HANDLE parentInstance);
   ~CAddonVideoCodec() override;
 
@@ -49,7 +49,7 @@ private:
 
   AddonInstance_VideoCodec m_struct;
   int m_codecFlags;
-  VIDEOCODEC_FORMAT m_formats[VIDEOCODEC_FORMAT::MaxVideoFormats + 1];
+  VIDEOCODEC_FORMAT m_formats[VIDEOCODEC_FORMAT_MAXFORMATS + 1];
   float m_displayAspect;
   unsigned int m_width, m_height;
 };

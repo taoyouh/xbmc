@@ -145,7 +145,8 @@ public:
   bool Create(const CAppParamParser &params);
   bool Cleanup() override;
 
-  bool IsInitialized() { return !m_bInitializing; }
+  bool IsInitialized() const { return !m_bInitializing; }
+  bool IsStopping() const { return m_bStop; }
 
   bool CreateGUI();
   bool InitWindow(RESOLUTION res = RES_INVALID);
@@ -156,7 +157,7 @@ public:
 
   bool IsCurrentThread() const;
   void Stop(int exitCode);
-  void UnloadSkin(bool forReload = false);
+  void UnloadSkin();
   bool LoadCustomWindows();
   void ReloadSkin(bool confirm = false);
   const std::string& CurrentFile();
@@ -206,6 +207,7 @@ public:
   void ActivateScreenSaver(bool forceType = false);
   void CloseNetworkShares();
 
+  void ConfigureAndEnableAddons();
   void ShowAppMigrationMessage();
   void Process() override;
   void ProcessSlow();
@@ -258,8 +260,9 @@ public:
    \brief Starts a video library cleanup.
    \param userInitiated Whether the action was initiated by the user (either via GUI or any other method) or not.  It is meant to hide or show dialogs.
    \param content Content type to clean, blank for everything
+   \param strDirectory The path to clean or "" (empty string) for a global clean.
    */
-  void StartVideoCleanup(bool userInitiated = true, const std::string& content = "");
+  void StartVideoCleanup(bool userInitiated = true, const std::string& content = "", const std::string& strDirectory = "");
 
   /*!
    \brief Starts a video library update.
@@ -358,9 +361,11 @@ protected:
   bool OnSettingsSaving() const override;
   bool Load(const TiXmlNode *settings) override;
   bool Save(TiXmlNode *settings) const override;
-  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
-  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
-  bool OnSettingUpdate(std::shared_ptr<CSetting> setting, const char *oldSettingId, const TiXmlNode *oldSettingNode) override;
+  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override;
+  void OnSettingAction(const std::shared_ptr<const CSetting>& setting) override;
+  bool OnSettingUpdate(const std::shared_ptr<CSetting>& setting,
+                       const char* oldSettingId,
+                       const TiXmlNode* oldSettingNode) override;
 
   bool LoadSkin(const std::string& skinID);
 
@@ -390,7 +395,6 @@ protected:
   bool m_ignoreSkinSettingChanges = false;
 
   bool m_saveSkinOnUnloading = true;
-  bool m_autoExecScriptExecuted = false;
 
 #if defined(TARGET_DARWIN_IOS)
   friend class CWinEventsIOS;
@@ -472,7 +476,8 @@ protected:
 
   ReplayGainSettings m_replayGainSettings;
   std::vector<IActionListener *> m_actionListeners;
-  std::vector<std::string> m_incompatibleAddons;  /*!< Result of addon migration */
+  std::vector<ADDON::AddonInfoPtr>
+      m_incompatibleAddons; /*!< Result of addon migration (incompatible addon infos) */
 
 private:
   mutable CCriticalSection m_critSection; /*!< critical section for all changes to this class, except for changes to triggers */
@@ -484,6 +489,7 @@ private:
   CApplicationPlayer m_appPlayer;
   CEvent m_playerEvent;
   CApplicationStackHelper m_stackHelper;
+  std::string m_windowing;
 };
 
 XBMC_GLOBAL_REF(CApplication,g_application);

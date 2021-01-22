@@ -155,13 +155,6 @@ namespace PVR
     std::shared_ptr<CFileItem> GetTimerRule(const std::shared_ptr<CFileItem>& item) const;
 
     /*!
-     * @brief Rename a timer, showing a text input dialog.
-     * @param item containing a timer to rename.
-     * @return true, if the timer was renamed successfully, false otherwise.
-     */
-    bool RenameTimer(const std::shared_ptr<CFileItem>& item) const;
-
-    /*!
      * @brief Delete a timer, always showing a confirmation dialog.
      * @param item containing a timer to delete. item must be a timer, an epg tag or a channel.
      * @return true, if the timer was deleted successfully, false otherwise.
@@ -218,18 +211,18 @@ namespace PVR
     bool CanEditRecording(const CFileItem& item) const;
 
     /*!
-     * @brief Rename a recording, showing a text input dialog.
-     * @param item containing a recording to rename.
-     * @return true, if the recording was renamed successfully, false otherwise.
-     */
-    bool RenameRecording(const std::shared_ptr<CFileItem>& item) const;
-
-    /*!
      * @brief Delete a recording, always showing a confirmation dialog.
      * @param item containing a recording to delete.
      * @return true, if the recording was deleted successfully, false otherwise.
      */
     bool DeleteRecording(const std::shared_ptr<CFileItem>& item) const;
+
+    /*!
+     * @brief Delete all watched recordings contained in the given folder, always showing a confirmation dialog.
+     * @param item containing a recording folder containing the items to delete.
+     * @return true, if the recordings were deleted successfully, false otherwise.
+     */
+    bool DeleteWatchedRecordings(const std::shared_ptr<CFileItem>& item) const;
 
     /*!
      * @brief Delete all recordings from trash, always showing a confirmation dialog.
@@ -314,6 +307,13 @@ namespace PVR
      * @return true on success, false otherwise.
      */
     bool StartChannelScan();
+
+    /*!
+     * @brief Start a channel scan on the specified client or open a dialog to select a client
+     * @param clientId the id of client to scan or PVR_INVALID_CLIENT_ID if a dialog will be opened
+     * @return true on success, false otherwise.
+     */
+    bool StartChannelScan(int clientId);
 
     /*!
      * @return True when a channel scan is currently running, false otherwise.
@@ -485,6 +485,13 @@ namespace PVR
      * @return true, to proceed with delete, false otherwise.
      */
     bool ConfirmDeleteRecording(const std::shared_ptr<CFileItem>& item) const;
+
+    /*!
+     * @brief Open a dialog to confirm delete all watched recordings contained in the given folder.
+     * @param item containing a recording folder containing the items to delete.
+     * @return true, to proceed with delete, false otherwise.
+     */
+    bool ConfirmDeleteWatchedRecordings(const std::shared_ptr<CFileItem>& item) const;
 
     /*!
      * @brief Open a dialog to confirm to permanently remove all deleted recordings.

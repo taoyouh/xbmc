@@ -12,12 +12,15 @@
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
 
-std::vector<CVariant> CSettingUtils::GetList(std::shared_ptr<const CSettingList> settingList)
+#include <algorithm>
+
+std::vector<CVariant> CSettingUtils::GetList(const std::shared_ptr<const CSettingList>& settingList)
 {
   return ListToValues(settingList, settingList->GetValue());
 }
 
-bool CSettingUtils::SetList(std::shared_ptr<CSettingList> settingList, const std::vector<CVariant> &value)
+bool CSettingUtils::SetList(const std::shared_ptr<CSettingList>& settingList,
+                            const std::vector<CVariant>& value)
 {
   SettingList newValues;
   if (!ValuesToList(settingList, value, newValues))
@@ -26,7 +29,9 @@ bool CSettingUtils::SetList(std::shared_ptr<CSettingList> settingList, const std
   return settingList->SetValue(newValues);
 }
 
-std::vector<CVariant> CSettingUtils::ListToValues(std::shared_ptr<const CSettingList> setting, const std::vector< std::shared_ptr<CSetting> > &values)
+std::vector<CVariant> CSettingUtils::ListToValues(
+    const std::shared_ptr<const CSettingList>& setting,
+    const std::vector<std::shared_ptr<CSetting>>& values)
 {
   std::vector<CVariant> realValues;
 
@@ -61,8 +66,9 @@ std::vector<CVariant> CSettingUtils::ListToValues(std::shared_ptr<const CSetting
   return realValues;
 }
 
-bool CSettingUtils::ValuesToList(std::shared_ptr<const CSettingList> setting, const std::vector<CVariant> &values,
-                                 std::vector< std::shared_ptr<CSetting> > &newValues)
+bool CSettingUtils::ValuesToList(const std::shared_ptr<const CSettingList>& setting,
+                                 const std::vector<CVariant>& values,
+                                 std::vector<std::shared_ptr<CSetting>>& newValues)
 {
   if (setting == NULL)
     return false;
@@ -117,4 +123,17 @@ bool CSettingUtils::ValuesToList(std::shared_ptr<const CSettingList> setting, co
   }
 
   return true;
+}
+
+bool CSettingUtils::FindIntInList(const std::shared_ptr<const CSettingList>& settingList, int value)
+{
+  if (settingList == nullptr || settingList->GetElementType() != SettingType::Integer)
+    return false;
+
+  const auto values = settingList->GetValue();
+  const auto matchingValue =
+      std::find_if(values.begin(), values.end(), [value](const SettingPtr& setting) {
+        return std::static_pointer_cast<CSettingInt>(setting)->GetValue() == value;
+      });
+  return matchingValue != values.end();
 }

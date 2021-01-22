@@ -11,6 +11,7 @@
 #include "ServiceBroker.h"
 #include "addons/AddonStatusHandler.h"
 #include "addons/binary-addons/BinaryAddonBase.h"
+#include "addons/binary-addons/BinaryAddonManager.h"
 #include "addons/settings/AddonSettings.h"
 #include "events/EventLog.h"
 #include "events/NotificationEvent.h"
@@ -21,17 +22,21 @@
 #include "utils/Variant.h"
 #include "utils/log.h"
 
+#include <utility>
+
 using namespace KODI::MESSAGING;
 
 namespace ADDON
 {
 
 CAddonDll::CAddonDll(const AddonInfoPtr& addonInfo, BinaryAddonBasePtr addonBase)
-  : CAddon(addonInfo, addonBase->MainType()), m_binaryAddonBase(addonBase)
+  : CAddon(addonInfo, addonInfo->MainType()), m_binaryAddonBase(std::move(addonBase))
 {
 }
 
-CAddonDll::CAddonDll(const AddonInfoPtr& addonInfo, TYPE addonType) : CAddon(addonInfo, addonType)
+CAddonDll::CAddonDll(const AddonInfoPtr& addonInfo, TYPE addonType)
+  : CAddon(addonInfo, addonType),
+    m_binaryAddonBase(CServiceBroker::GetBinaryAddonManager().GetRunningAddonBase(addonInfo->ID()))
 {
 }
 
@@ -151,67 +156,6 @@ bool CAddonDll::LoadDll()
   return true;
 }
 
-ADDON_STATUS CAddonDll::Create(ADDON_TYPE type, void* funcTable, void* info)
-{
-  /* ensure that a previous instance is destroyed */
-  Destroy();
-
-  if (!funcTable)
-    return ADDON_STATUS_PERMANENT_FAILURE;
-
-  CLog::Log(LOGDEBUG, "ADDON: Dll Initializing - %s", Name().c_str());
-  m_initialized = false;
-
-  if (!LoadDll())
-    return ADDON_STATUS_PERMANENT_FAILURE;
-
-  /* Check requested instance version on add-on */
-  if (!CheckAPIVersion(type))
-    return ADDON_STATUS_PERMANENT_FAILURE;
-
-  /* Check versions about global parts on add-on (parts used on all types) */
-  for (unsigned int id = ADDON_GLOBAL_MAIN; id <= ADDON_GLOBAL_MAX; ++id)
-  {
-    if (!CheckAPIVersion(id))
-      return ADDON_STATUS_PERMANENT_FAILURE;
-  }
-
-  /* Load add-on function table (written by add-on itself) */
-  m_pDll->GetAddon(funcTable);
-
-  /* Allocate the helper function class to allow crosstalk over
-     helper libraries */
-  m_pHelpers = new CAddonInterfaces(this);
-
-  /* Call Create to make connections, initializing data or whatever is
-     needed to become the AddOn running */
-  ADDON_STATUS status = m_pDll->CreateEx_available()
-    ? m_pDll->CreateEx(m_pHelpers->GetCallbacks(), kodi::addon::GetTypeVersion(ADDON_GLOBAL_MAIN), info)
-    : m_pDll->Create(m_pHelpers->GetCallbacks(), info);
-
-  if (status == ADDON_STATUS_OK)
-  {
-    m_initialized = true;
-  }
-  else if (status == ADDON_STATUS_NEED_SETTINGS)
-  {
-    status = TransferSettings();
-    if (status == ADDON_STATUS_OK)
-      m_initialized = true;
-    else
-      new CAddonStatusHandler(ID(), status, "", false);
-  }
-  else
-  { // Addon failed initialization
-    CLog::Log(LOGERROR, "ADDON: Dll %s - Client returned bad status (%i) from Create and is not usable", Name().c_str(), status);
-
-    std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
-    HELPERS::ShowOKDialogLines(CVariant{ heading }, CVariant{ 24070 }, CVariant{ 24071 });
-  }
-
-  return status;
-}
-
 ADDON_STATUS CAddonDll::Create(KODI_HANDLE firstKodiInstance)
 {
   CLog::Log(LOGDEBUG, "ADDON: Dll Initializing - %s", Name().c_str());
@@ -236,9 +180,8 @@ ADDON_STATUS CAddonDll::Create(KODI_HANDLE firstKodiInstance)
 
   /* Call Create to make connections, initializing data or whatever is
      needed to become the AddOn running */
-  ADDON_STATUS status = m_pDll->CreateEx_available()
-    ? m_pDll->CreateEx(&m_interface, kodi::addon::GetTypeVersion(ADDON_GLOBAL_MAIN), nullptr)
-    : m_pDll->Create(&m_interface, nullptr);
+  ADDON_STATUS status =
+      m_pDll->Create(&m_interface, kodi::addon::GetTypeVersion(ADDON_GLOBAL_MAIN), nullptr);
 
   if (status == ADDON_STATUS_OK)
   {
@@ -268,20 +211,22 @@ void CAddonDll::Destroy()
   /* Unload library file */
   if (m_pDll)
   {
-    m_pDll->Destroy();
+    if (m_interface.toAddon->destroy)
+      m_interface.toAddon->destroy();
     m_pDll->Unload();
   }
 
   Interface_Base::DeInitInterface(m_interface);
 
-  delete m_pHelpers;
-  m_pHelpers = nullptr;
   if (m_pDll)
   {
     delete m_pDll;
     m_pDll = nullptr;
     CLog::Log(LOGINFO, "ADDON: Dll Destroyed - %s", Name().c_str());
   }
+
+  ResetSettings();
+
   m_initialized = false;
 }
 
@@ -303,12 +248,11 @@ ADDON_STATUS CAddonDll::CreateInstance(ADDON_TYPE instanceType,
     return ADDON_STATUS_PERMANENT_FAILURE;
 
   KODI_HANDLE addonInstance = nullptr;
-  if (!m_interface.toAddon->create_instance_ex)
-    status = m_interface.toAddon->create_instance(instanceType, instanceID.c_str(), instance, &addonInstance, parentInstance);
-  else
-    status = m_interface.toAddon->create_instance_ex(instanceType, instanceID.c_str(), instance, &addonInstance, parentInstance, kodi::addon::GetTypeVersion(instanceType));
+  status = m_interface.toAddon->create_instance(instanceType, instanceID.c_str(), instance,
+                                                kodi::addon::GetTypeVersion(instanceType),
+                                                &addonInstance, parentInstance);
 
-  if (status == ADDON_STATUS_OK)
+  if (addonInstance)
   {
     m_usedInstances[instanceClass] = std::make_pair(instanceType, addonInstance);
   }
@@ -332,12 +276,48 @@ void CAddonDll::DestroyInstance(ADDON_INSTANCE_HANDLER instanceClass)
     Destroy();
 }
 
+bool CAddonDll::IsInUse() const
+{
+  if (m_informer)
+    return m_informer->IsInUse(ID());
+  return false;
+}
+
+void CAddonDll::RegisterInformer(CAddonDllInformer* informer)
+{
+  m_informer = informer;
+}
+
 AddonPtr CAddonDll::GetRunningInstance() const
 {
   if (CServiceBroker::IsBinaryAddonCacheUp())
     return CServiceBroker::GetBinaryAddonManager().GetRunningAddon(ID());
 
   return AddonPtr();
+}
+
+void CAddonDll::OnPreInstall()
+{
+  if (m_binaryAddonBase)
+    m_binaryAddonBase->OnPreInstall();
+}
+
+void CAddonDll::OnPostInstall(bool update, bool modal)
+{
+  if (m_binaryAddonBase)
+    m_binaryAddonBase->OnPostInstall(update, modal);
+}
+
+void CAddonDll::OnPreUnInstall()
+{
+  if (m_binaryAddonBase)
+    m_binaryAddonBase->OnPreUnInstall();
+}
+
+void CAddonDll::OnPostUnInstall()
+{
+  if (m_binaryAddonBase)
+    m_binaryAddonBase->OnPostUnInstall();
 }
 
 bool CAddonDll::DllLoaded(void) const
@@ -355,11 +335,6 @@ AddonVersion CAddonDll::GetTypeMinVersionDll(int type) const
   return AddonVersion(m_pDll ? m_pDll->GetAddonTypeMinVersion(type) : nullptr);
 }
 
-ADDON_STATUS CAddonDll::GetStatus()
-{
-  return m_pDll->GetStatus();
-}
-
 void CAddonDll::SaveSettings()
 {
   // must save first, as TransferSettings() reloads saved settings!
@@ -370,6 +345,9 @@ void CAddonDll::SaveSettings()
 
 ADDON_STATUS CAddonDll::TransferSettings()
 {
+  if (!m_interface.toAddon->set_setting)
+    return ADDON_STATUS_NOT_IMPLEMENTED;
+
   bool restart = false;
   ADDON_STATUS reportStatus = ADDON_STATUS_OK;
 
@@ -380,13 +358,13 @@ ADDON_STATUS CAddonDll::TransferSettings()
   auto settings = GetSettings();
   if (settings != nullptr)
   {
-    for (auto section : settings->GetSections())
+    for (const auto& section : settings->GetSections())
     {
-      for (auto category : section->GetCategories())
+      for (const auto& category : section->GetCategories())
       {
-        for (auto group : category->GetGroups())
+        for (const auto& group : category->GetGroups())
         {
-          for (auto setting : group->GetSettings())
+          for (const auto& setting : group->GetSettings())
           {
             ADDON_STATUS status = ADDON_STATUS_OK;
             const char* id = setting->GetId().c_str();
@@ -395,32 +373,33 @@ ADDON_STATUS CAddonDll::TransferSettings()
               case SettingType::Boolean:
               {
                 bool tmp = std::static_pointer_cast<CSettingBool>(setting)->GetValue();
-                status = m_pDll->SetSetting(id, &tmp);
+                status = m_interface.toAddon->set_setting(id, &tmp);
                 break;
               }
 
               case SettingType::Integer:
               {
                 int tmp = std::static_pointer_cast<CSettingInt>(setting)->GetValue();
-                status = m_pDll->SetSetting(id, &tmp);
+                status = m_interface.toAddon->set_setting(id, &tmp);
                 break;
               }
 
               case SettingType::Number:
               {
                 float tmpf = static_cast<float>(std::static_pointer_cast<CSettingNumber>(setting)->GetValue());
-                status = m_pDll->SetSetting(id, &tmpf);
+                status = m_interface.toAddon->set_setting(id, &tmpf);
                 break;
               }
 
               case SettingType::String:
-                status = m_pDll->SetSetting(id, std::static_pointer_cast<CSettingString>(setting)->GetValue().c_str());
+                status = m_interface.toAddon->set_setting(
+                    id, std::static_pointer_cast<CSettingString>(setting)->GetValue().c_str());
                 break;
 
               default:
                 // log unknowns as an error, but go ahead and transfer the string
                 CLog::Log(LOGERROR, "Unknown setting type of '%s' for %s", id, Name().c_str());
-                status = m_pDll->SetSetting(id, setting->ToString().c_str());
+                status = m_interface.toAddon->set_setting(id, setting->ToString().c_str());
                 break;
             }
 

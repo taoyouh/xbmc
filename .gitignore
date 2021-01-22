@@ -45,6 +45,8 @@ CMakeSettings.json
 
 # Windows specific generated files
 *.appx
+*.appxsym
+*.msix
 *.cer
 *.exp
 *.ilk
@@ -97,8 +99,9 @@ cmake_install.cmake
 /kodi.bin
 /kodi-test
 /kodi-xrandr
+/*.diff
 /*.patch
-/kodi-build/
+/kodi-build*/
 /gtestresults.xml
 
 # /addons/
@@ -118,6 +121,7 @@ cmake_install.cmake
 /addons/kodi.binary.global.gui/addon.xml
 /addons/kodi.binary.global.main/addon.xml
 /addons/kodi.binary.global.network/addon.xml
+/addons/kodi.binary.global.tools/addon.xml
 /addons/kodi.binary.instance.audiodecoder/addon.xml
 /addons/kodi.binary.instance.audioencoder/addon.xml
 /addons/kodi.binary.instance.game/addon.xml
@@ -284,7 +288,6 @@ cmake_install.cmake
 /tools/darwin/packaging/darwin_embedded/mkdeb-darwin_embedded.sh
 /tools/darwin/packaging/osx/mkdmg-osx.sh
 /tools/darwin/packaging/osx/VolumeIcon.icns
-/tools/darwin/packaging/darwin_embedded/migrate_to_kodi.sh
 /tools/darwin/packaging/seatbeltunlock/mkdeb-seatbeltunlock.sh
 /tools/darwin/runtime/XBMCHelper
 

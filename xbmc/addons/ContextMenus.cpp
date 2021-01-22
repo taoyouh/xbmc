@@ -9,12 +9,11 @@
 #include "ContextMenus.h"
 
 #include "AddonManager.h"
-#include "GUIDialogAddonInfo.h"
 #include "Repository.h"
 #include "RepositoryUpdater.h"
 #include "ServiceBroker.h"
-#include "settings/GUIDialogAddonSettings.h"
-
+#include "addons/gui/GUIDialogAddonSettings.h"
+#include "addons/gui/GUIHelpers.h"
 
 namespace CONTEXTMENU
 {
@@ -24,16 +23,18 @@ using namespace ADDON;
 bool CAddonSettings::IsVisible(const CFileItem& item) const
 {
   AddonPtr addon;
-  return item.HasAddonInfo()
-         && CServiceBroker::GetAddonMgr().GetAddon(item.GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
-         && addon->HasSettings();
+  return item.HasAddonInfo() &&
+         CServiceBroker::GetAddonMgr().GetAddon(item.GetAddonInfo()->ID(), addon, ADDON_UNKNOWN,
+                                                OnlyEnabled::NO) &&
+         addon->HasSettings();
 }
 
 bool CAddonSettings::Execute(const CFileItemPtr& item) const
 {
   AddonPtr addon;
-  return CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
-         && CGUIDialogAddonSettings::ShowForAddon(addon);
+  return CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_UNKNOWN,
+                                                OnlyEnabled::NO) &&
+         CGUIDialogAddonSettings::ShowForAddon(addon);
 }
 
 bool CCheckForUpdates::IsVisible(const CFileItem& item) const
@@ -44,7 +45,9 @@ bool CCheckForUpdates::IsVisible(const CFileItem& item) const
 bool CCheckForUpdates::Execute(const CFileItemPtr& item) const
 {
   AddonPtr addon;
-  if (item->HasAddonInfo() && CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_REPOSITORY))
+  if (item->HasAddonInfo() &&
+      CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_REPOSITORY,
+                                             OnlyEnabled::YES))
   {
     CServiceBroker::GetRepositoryUpdater().CheckForUpdates(std::static_pointer_cast<CRepository>(addon), true);
     return true;
@@ -62,6 +65,10 @@ bool CEnableAddon::IsVisible(const CFileItem& item) const
 
 bool CEnableAddon::Execute(const CFileItemPtr& item) const
 {
+  // Check user want to enable if lifecycle not normal
+  if (!ADDON::GUI::CHelpers::DialogAddonLifecycleUseAsk(item->GetAddonInfo()))
+    return false;
+
   return CServiceBroker::GetAddonMgr().EnableAddon(item->GetAddonInfo()->ID());
 }
 
@@ -74,6 +81,7 @@ bool CDisableAddon::IsVisible(const CFileItem& item) const
 
 bool CDisableAddon::Execute(const CFileItemPtr& item) const
 {
-  return CServiceBroker::GetAddonMgr().DisableAddon(item->GetAddonInfo()->ID());
+  return CServiceBroker::GetAddonMgr().DisableAddon(item->GetAddonInfo()->ID(),
+                                                    AddonDisabledReason::USER);
 }
 }

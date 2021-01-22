@@ -67,6 +67,7 @@ public:
     void SetField(int fieldNo, const std::string &strField, bool bOutput = false);
     void AdjustRecordNumbers(int offset);
     bool GetFetch(int fieldno);
+    void SetFetch(int fieldno, bool bFetch = true);
     bool GetOutput(int fieldno);
     int GetRecNo(int fieldno);
     const std::string GetFields();
@@ -129,6 +130,28 @@ public:
   std::string GetSingleValue(const std::string &query, std::unique_ptr<dbiplus::Dataset> &ds);
 
   /*!
+ * @brief Get a single integer value from a table.
+ * @remarks The values of the strWhereClause and strOrderBy parameters have to be FormatSQL'ed when used.
+ * @param strTable The table to get the value from.
+ * @param strColumn The column to get.
+ * @param strWhereClause If set, use this WHERE clause.
+ * @param strOrderBy If set, use this ORDER BY clause.
+ * @return The requested value or 0 if it wasn't found.
+ */
+  int GetSingleValueInt(const std::string& strTable,
+                        const std::string& strColumn,
+                        const std::string& strWhereClause = std::string(),
+                        const std::string& strOrderBy = std::string());
+  int GetSingleValueInt(const std::string& query);
+
+  /*! \brief Get a single integer value from a query on a dataset.
+   \param query the query in question.
+   \param ds the dataset to use for the query.
+   \return the value from the query, 0 on failure.
+   */
+  int GetSingleValueInt(const std::string& query, std::unique_ptr<dbiplus::Dataset>& ds);
+
+  /*!
    * @brief Delete values from a table.
    * @param strTable The table to delete the values from.
    * @param filter The Filter to apply to this query.
@@ -186,6 +209,31 @@ public:
    * @return True if all queries were executed successfully, false otherwise.
    */
   bool CommitInsertQueries();
+
+  /*!
+   * @brief Get the number of INSERT queries in the queue.
+   * @return The number of queries.
+   */
+  size_t GetInsertQueriesCount();
+
+  /*!
+   * @brief Put a DELETE query in the queue.
+   * @param strQuery The query to queue.
+   * @return True if the query was added successfully, false otherwise.
+   */
+  bool QueueDeleteQuery(const std::string& strQuery);
+
+  /*!
+   * @brief Commit all queued DELETE queries.
+   * @return True if all queries were executed successfully, false otherwise.
+   */
+  bool CommitDeleteQueries();
+
+  /*!
+   * @brief Get the number of DELETE queries in the queue.
+   * @return The number of queries.
+   */
+  size_t GetDeleteQueriesCount();
 
   virtual bool GetFilter(CDbUrl &dbUrl, Filter &filter, SortDescription &sorting) { return true; }
   virtual bool BuildSQL(const std::string &strBaseDir, const std::string &strQuery, Filter &filter, std::string &strSQL, CDbUrl &dbUrl);
@@ -248,7 +296,10 @@ private:
   void InitSettings(DatabaseSettings &dbSettings);
   void UpdateVersionNumber();
 
-  bool m_bMultiWrite; /*!< True if there are any queries in the queue, false otherwise */
+  bool m_bMultiInsert =
+      false; /*!< True if there are any queries in the insert queue, false otherwise */
+  bool m_bMultiDelete =
+      false; /*!< True if there are any queries in the delete queue, false otherwise */
   unsigned int m_openCount;
 
   bool m_multipleExecute;

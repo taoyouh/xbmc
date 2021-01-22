@@ -469,6 +469,22 @@ const infomap integer_bools[] =  {{ "isequal",          INTEGER_IS_EQUAL },
 ///     video.
 ///     <p>
 ///   }
+///   \table_row3{   <b>`Player.offset(number).Title`</b>,
+///                  \anchor Player_Offset_Title
+///                  _string_,
+///     @return The title of audio or video which has an offset `number` with respect to the currently playing item.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Offset_Title `Player.offset(number).Title`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.position(number).Title`</b>,
+///                  \anchor Player_Position_Title
+///                  _string_,
+///     @return The title of the audio or video which has an offset `number` with respect to the start of the playlist.
+///     <p>><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Position_Title `Player.position(number).Title`\endlink
+///     <p>
+///   }
 ///   \table_row3{   <b>`Player.Muted`</b>,
 ///                  \anchor Player_Muted
 ///                  _boolean_,
@@ -495,14 +511,20 @@ const infomap integer_bools[] =  {{ "isequal",          INTEGER_IS_EQUAL },
 ///   }
 ///   \table_row3{   <b>`Player.Progress`</b>,
 ///                  \anchor Player_Progress
-///                  _integer_,
+///                  _integer_ / _string_,
 ///     @return The progress position as percentage.
+///     <p><hr>
+///     @skinning_v19 \link Player_Progress `Player.Progress`\endlink infolabel
+///     also exposed as a string.
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`Player.ProgressCache`</b>,
 ///                  \anchor Player_ProgressCache
-///                  _integer_,
+///                  _integer_ / _string_,
 ///     @return How much of the file is cached above current play percentage
+///     <p><hr>
+///     @skinning_v19 \link Player_ProgressCache `Player.ProgressCache`\endlink
+///     infolabel also exposed as a string.
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`Player.Volume`</b>,
@@ -547,11 +569,43 @@ const infomap integer_bools[] =  {{ "isequal",          INTEGER_IS_EQUAL },
 ///     @return The full path of the currently playing song or movie
 ///     <p>
 ///   }
+///   \table_row3{   <b>`Player.offset(number).Folderpath`</b>,
+///                  \anchor Player_Offset_Folderpath
+///                  _string_,
+///     @return The full path of the audio or video file which has an offset `number` with respect to the currently playing item.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Offset_Folderpath `Player.offset(number).Folderpath`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.position(number).Folderpath`</b>,
+///                  \anchor Player_Position_Folderpath
+///                  _string_,
+///     @return The full path of the audio or video file which has an offset `number` with respect to the start of the playlist.
+///     <p>><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Position_Folderpath `Player.position(number).Folderpath`\endlink
+///     <p>
+///   }
 ///   \table_row3{   <b>`Player.FilenameAndPath`</b>,
 ///                  \anchor Player_FilenameAndPath
 ///                  _string_,
 ///     @return The full path with filename of the currently
 ///     playing song or movie
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.offset(number).FilenameAndPath`</b>,
+///                  \anchor Player_Offset_FilenameAndPath
+///                  _string_,
+///     @return The full path with filename of audio or video file which has an offset `number` with respect to the currently playing item.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Offset_FilenameAndPath `Player.offset(number).FilenameAndPath`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.position(number).FilenameAndPath`</b>,
+///                  \anchor Player_Position_FilenameAndPath
+///                  _string_,
+///     @return The full path with filename of the audio or video file which has an offset `number` with respect to the start of the playlist.
+///     <p>><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Position_FilenameAndPath `Player.position(number).FilenameAndPath`\endlink
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`Player.Filename`</b>,
@@ -560,6 +614,22 @@ const infomap integer_bools[] =  {{ "isequal",          INTEGER_IS_EQUAL },
 ///     @return The filename of the currently playing media.
 ///     <p><hr>
 ///     @skinning_v13 **[New Infolabel]** \link Player_Filename `Player.Filename`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.offset(number).Filename`</b>,
+///                  \anchor Player_Offset_Filename
+///                  _string_,
+///     @return The filename of audio or video file which has an offset `number` with respect to the currently playing item.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Offset_Filename `Player.offset(number).Filename`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`Player.position(number).Filename`</b>,
+///                  \anchor Player_Position_Filename
+///                  _string_,
+///     @return The filename of the audio or video file which has an offset `number` with respect to the start of the playlist.
+///     <p>><hr>
+///     @skinning_v19 **[New Infolabel]** \link Player_Position_Filename `Player.position(number).Filename`\endlink
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`Player.IsInternetStream`</b>,
@@ -1045,10 +1115,11 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///   \table_row3{   <b>`System.HasMediaAudioCD`</b>,
 ///                  \anchor System_HasMediaAudioCD
 ///                  _boolean_,
-///     @return **True** if there is an audio CD in the optical drive. **False** if no drive available\, empty drive or other medium.
+///     @return **True** if there is an audio CD in the optical drive. **False** if no drive
+///     available\, empty drive or other medium.
 ///   <p><hr>
-///   @skinning_v18 **[New Boolean Condition]** \link System_HasMediaAudioCD `System.HasMediaAudioCD` \endlink
-///   <p>
+///   @skinning_v18 **[New Boolean Condition]** \link System_HasMediaAudioCD
+///   `System.HasMediaAudioCD` \endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.DVDReady`</b>,
 ///                  \anchor System_DVDReady
@@ -1123,8 +1194,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return **True** if at least one pvr client addon is installed and enabled.
 ///     @param id - addon id of the PVR addon
 ///     <p><hr>
-///     @skinning_v17 **[New Boolean Condition]** \link System_HasPVRAddon `System.HasPVRAddon`\endlink
-///     <p>
+///     @skinning_v17 **[New Boolean Condition]** \link System_HasPVRAddon
+///     `System.HasPVRAddon`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.HasCMS`</b>,
 ///                  \anchor System_HasCMS
@@ -1140,29 +1211,21 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///                  _boolean_,
 ///     @return **True** if a modal dialog is active.
 ///     <p><hr>
-///     @skinning_v18 **[New Boolean Condition]** \link System_HasActiveModalDialog `System.HasActiveModalDialog`\endlink
-///     <p>
+///     @skinning_v18 **[New Boolean Condition]** \link System_HasActiveModalDialog
+///     `System.HasActiveModalDialog`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.HasVisibleModalDialog`</b>,
 ///                  \anchor System_HasVisibleModalDialog
 ///                  _boolean_,
 ///     @return **True** if a modal dialog is visible.
 ///     <p><hr>
-///     @skinning_v18 **[New Boolean Condition]** \link System_HasVisibleModalDialog `System.HasVisibleModalDialog`\endlink
-///     <p>
+///     @skinning_v18 **[New Boolean Condition]** \link System_HasVisibleModalDialog
+///     `System.HasVisibleModalDialog`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.Platform.Linux`</b>,
 ///                  \anchor System_PlatformLinux
 ///                  _boolean_,
 ///     @return **True** if Kodi is running on a linux/unix based computer.
-///     <p>
-///   }
-///   \table_row3{   <b>`System.Platform.Linux.RaspberryPi`</b>,
-///                  \anchor System_PlatformLinuxRaspberryPi
-///                  _boolean_,
-///     @return **True** if Kodi is running on a Raspberry Pi.
-///     <p><hr>
-///     @skinning_v13 **[New Boolean Condition]** \link System_PlatformLinuxRaspberryPi `System.Platform.Linux.RaspberryPi`\endlink
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`System.Platform.Windows`</b>,
@@ -1176,8 +1239,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///                  _boolean_,
 ///     @return **True** if Kodi is running on Universal Windows Platform (UWP).
 ///     <p><hr>
-///     @skinning_v18 **[New Boolean Condition]** \link System_PlatformUWP `System.Platform.UWP`\endlink
-///     <p>
+///     @skinning_v18 **[New Boolean Condition]** \link System_PlatformUWP
+///     `System.Platform.UWP`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.Platform.OSX`</b>,
 ///                  \anchor System_PlatformOSX
@@ -1196,8 +1259,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///                  _boolean_,
 ///     @return **True** if Kodi is running on a tvOS device.
 ///     <p><hr>
-///     @skinning_v19 **[New Boolean Condition]** \link System_PlatformTVOS `System.Platform.TVOS`\endlink
-///     <p>
+///     @skinning_v19 **[New Boolean Condition]** \link System_PlatformTVOS
+///     `System.Platform.TVOS`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.Platform.Darwin`</b>,
 ///                  \anchor System_PlatformDarwin
@@ -1235,8 +1298,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return **True** when to osd keyboard/numeric dialog requests a
 ///     password/pincode.
 ///     <p><hr>
-///     @skinning_v16 **[New Boolean Condition]** \link System_HasHiddenInput `System.HasHiddenInput`\endlink
-///     <p>
+///     @skinning_v16 **[New Boolean Condition]** \link System_HasHiddenInput
+///     `System.HasHiddenInput`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.CanReboot`</b>,
 ///                  \anchor System_CanReboot
@@ -1408,6 +1471,18 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return The date of build.
 ///     <p>
 ///   }
+///   \table_row3{   <b>`System.BuildVersionCode`</b>,
+///                  \anchor System_BuildVersionCode
+///                  _string_,
+///     @return The version code of build.
+///     <p>
+///   }
+///   \table_row3{   <b>`System.BuildVersionGit`</b>,
+///                  \anchor System_BuildVersionGit
+///                  _string_,
+///     @return The git version of build.
+///     <p>
+///   }
 ///   \table_row3{   <b>`System.FriendlyName`</b>,
 ///                  \anchor System_FriendlyName
 ///                  _string_,
@@ -1556,8 +1631,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///                  _string_,
 ///     @return The profile Kodi will auto login to.
 ///     <p><hr>
-///     @skinning_v13 **[New Infolabel]** \link System_ProfileAutoLogin `System.ProfileAutoLogin`\endlink
-///     <p>
+///     @skinning_v13 **[New Infolabel]** \link System_ProfileAutoLogin
+///     `System.ProfileAutoLogin`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.StereoscopicMode`</b>,
 ///                  \anchor System_StereoscopicMode
@@ -1565,8 +1640,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return The prefered stereoscopic mode.
 ///     @note Configured in settings > video > playback).
 ///     <p><hr>
-///     @skinning_v13 **[New Infolabel]** \link System_StereoscopicMode `System.StereoscopicMode`\endlink
-///     <p>
+///     @skinning_v13 **[New Infolabel]** \link System_StereoscopicMode
+///     `System.StereoscopicMode`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.TemperatureUnits`</b>,
 ///                  \anchor System_TemperatureUnits
@@ -1612,8 +1687,8 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return The version of the addon with the given id.
 ///     @param id - the addon id
 ///     <p><hr>
-///     @skinning_v13 **[New Infolabel]** \link System_AddonVersion `System.AddonVersion(id)`\endlink
-///     <p>
+///     @skinning_v13 **[New Infolabel]** \link System_AddonVersion
+///     `System.AddonVersion(id)`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.AddonIcon(id)`</b>,
 ///                  \anchor System_AddonVersion
@@ -1621,6 +1696,14 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///     @return The icon of the addon with the given id.
 ///     @param id - the addon id
 ///     <p>
+///   }
+///   \table_row3{   <b>`System.AddonUpdateCount`</b>,
+///                  \anchor System_AddonUpdateCount
+///                  _string_,
+///     @return The number of available addon updates.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link  System_AddonUpdateCount `
+///     System.AddonUpdateCount`\endlink <p>
 ///   }
 ///   \table_row3{   <b>`System.IdleTime(time)`</b>,
 ///                  \anchor System_IdleTime
@@ -1642,78 +1725,81 @@ const infomap weather[] =        {{ "isfetched",        WEATHER_IS_FETCHED },
 ///                  _boolean_,
 ///     @return **True** if the system can provide CPU usage information.
 ///     <p><hr>
-///     @skinning_v19 **[New Boolean Condition]** \link  System_SupportsCPUUsage ` System.SupportsCPUUsage`\endlink
-///     <p>
+///     @skinning_v19 **[New Boolean Condition]** \link  System_SupportsCPUUsage `
+///     System.SupportsCPUUsage`\endlink <p>
 ///   }
-const infomap system_labels[] =  {{ "hasnetwork",       SYSTEM_ETHERNET_LINK_ACTIVE },
-                                  { "hasmediadvd",      SYSTEM_MEDIA_DVD },
-                                  { "hasmediaaudiocd",  SYSTEM_MEDIA_AUDIO_CD },
-                                  { "dvdready",         SYSTEM_DVDREADY },
-                                  { "trayopen",         SYSTEM_TRAYOPEN },
-                                  { "haslocks",         SYSTEM_HASLOCKS },
-                                  { "hashiddeninput",   SYSTEM_HAS_INPUT_HIDDEN },
-                                  { "hasloginscreen",   SYSTEM_HAS_LOGINSCREEN },
-                                  { "hasactivemodaldialog",   SYSTEM_HAS_ACTIVE_MODAL_DIALOG },
-                                  { "hasvisiblemodaldialog",   SYSTEM_HAS_VISIBLE_MODAL_DIALOG },
-                                  { "ismaster",         SYSTEM_ISMASTER },
-                                  { "isfullscreen",     SYSTEM_ISFULLSCREEN },
-                                  { "isstandalone",     SYSTEM_ISSTANDALONE },
-                                  { "loggedon",         SYSTEM_LOGGEDON },
-                                  { "showexitbutton",   SYSTEM_SHOW_EXIT_BUTTON },
-                                  { "canpowerdown",     SYSTEM_CAN_POWERDOWN },
-                                  { "cansuspend",       SYSTEM_CAN_SUSPEND },
-                                  { "canhibernate",     SYSTEM_CAN_HIBERNATE },
-                                  { "canreboot",        SYSTEM_CAN_REBOOT },
-                                  { "screensaveractive",SYSTEM_SCREENSAVER_ACTIVE },
-                                  { "dpmsactive",       SYSTEM_DPMS_ACTIVE },
-                                  { "cputemperature",   SYSTEM_CPU_TEMPERATURE },     // labels from here
-                                  { "cpuusage",         SYSTEM_CPU_USAGE },
-                                  { "gputemperature",   SYSTEM_GPU_TEMPERATURE },
-                                  { "fanspeed",         SYSTEM_FAN_SPEED },
-                                  { "freespace",        SYSTEM_FREE_SPACE },
-                                  { "usedspace",        SYSTEM_USED_SPACE },
-                                  { "totalspace",       SYSTEM_TOTAL_SPACE },
-                                  { "usedspacepercent", SYSTEM_USED_SPACE_PERCENT },
-                                  { "freespacepercent", SYSTEM_FREE_SPACE_PERCENT },
-                                  { "buildversion",     SYSTEM_BUILD_VERSION },
-                                  { "buildversionshort",SYSTEM_BUILD_VERSION_SHORT },
-                                  { "builddate",        SYSTEM_BUILD_DATE },
-                                  { "fps",              SYSTEM_FPS },
-                                  { "freememory",       SYSTEM_FREE_MEMORY },
-                                  { "language",         SYSTEM_LANGUAGE },
-                                  { "temperatureunits", SYSTEM_TEMPERATURE_UNITS },
-                                  { "screenmode",       SYSTEM_SCREEN_MODE },
-                                  { "screenwidth",      SYSTEM_SCREEN_WIDTH },
-                                  { "screenheight",     SYSTEM_SCREEN_HEIGHT },
-                                  { "currentwindow",    SYSTEM_CURRENT_WINDOW },
-                                  { "currentcontrol",   SYSTEM_CURRENT_CONTROL },
-                                  { "currentcontrolid", SYSTEM_CURRENT_CONTROL_ID },
-                                  { "dvdlabel",         SYSTEM_DVD_LABEL },
-                                  { "internetstate",    SYSTEM_INTERNET_STATE },
-                                  { "osversioninfo",    SYSTEM_OS_VERSION_INFO },
-                                  { "kernelversion",    SYSTEM_OS_VERSION_INFO }, // old, not correct name
-                                  { "uptime",           SYSTEM_UPTIME },
-                                  { "totaluptime",      SYSTEM_TOTALUPTIME },
-                                  { "cpufrequency",     SYSTEM_CPUFREQUENCY },
-                                  { "screenresolution", SYSTEM_SCREEN_RESOLUTION },
-                                  { "videoencoderinfo", SYSTEM_VIDEO_ENCODER_INFO },
-                                  { "profilename",      SYSTEM_PROFILENAME },
-                                  { "profilethumb",     SYSTEM_PROFILETHUMB },
-                                  { "profilecount",     SYSTEM_PROFILECOUNT },
-                                  { "profileautologin", SYSTEM_PROFILEAUTOLOGIN },
-                                  { "progressbar",      SYSTEM_PROGRESS_BAR },
-                                  { "batterylevel",     SYSTEM_BATTERY_LEVEL },
-                                  { "friendlyname",     SYSTEM_FRIENDLY_NAME },
-                                  { "alarmpos",         SYSTEM_ALARM_POS },
-                                  { "isinhibit",        SYSTEM_ISINHIBIT },
-                                  { "hasshutdown",      SYSTEM_HAS_SHUTDOWN },
-                                  { "haspvr",           SYSTEM_HAS_PVR },
-                                  { "startupwindow",    SYSTEM_STARTUP_WINDOW },
-                                  { "stereoscopicmode", SYSTEM_STEREOSCOPIC_MODE },
-                                  { "hascms",           SYSTEM_HAS_CMS },
-                                  { "privacypolicy",    SYSTEM_PRIVACY_POLICY },
-                                  { "haspvraddon",      SYSTEM_HAS_PVR_ADDON },
-                                  { "supportscpuusage", SYSTEM_SUPPORTS_CPU_USAGE }};
+const infomap system_labels[] = {{"hasnetwork", SYSTEM_ETHERNET_LINK_ACTIVE},
+                                 {"hasmediadvd", SYSTEM_MEDIA_DVD},
+                                 {"hasmediaaudiocd", SYSTEM_MEDIA_AUDIO_CD},
+                                 {"dvdready", SYSTEM_DVDREADY},
+                                 {"trayopen", SYSTEM_TRAYOPEN},
+                                 {"haslocks", SYSTEM_HASLOCKS},
+                                 {"hashiddeninput", SYSTEM_HAS_INPUT_HIDDEN},
+                                 {"hasloginscreen", SYSTEM_HAS_LOGINSCREEN},
+                                 {"hasactivemodaldialog", SYSTEM_HAS_ACTIVE_MODAL_DIALOG},
+                                 {"hasvisiblemodaldialog", SYSTEM_HAS_VISIBLE_MODAL_DIALOG},
+                                 {"ismaster", SYSTEM_ISMASTER},
+                                 {"isfullscreen", SYSTEM_ISFULLSCREEN},
+                                 {"isstandalone", SYSTEM_ISSTANDALONE},
+                                 {"loggedon", SYSTEM_LOGGEDON},
+                                 {"showexitbutton", SYSTEM_SHOW_EXIT_BUTTON},
+                                 {"canpowerdown", SYSTEM_CAN_POWERDOWN},
+                                 {"cansuspend", SYSTEM_CAN_SUSPEND},
+                                 {"canhibernate", SYSTEM_CAN_HIBERNATE},
+                                 {"canreboot", SYSTEM_CAN_REBOOT},
+                                 {"screensaveractive", SYSTEM_SCREENSAVER_ACTIVE},
+                                 {"dpmsactive", SYSTEM_DPMS_ACTIVE},
+                                 {"cputemperature", SYSTEM_CPU_TEMPERATURE}, // labels from here
+                                 {"cpuusage", SYSTEM_CPU_USAGE},
+                                 {"gputemperature", SYSTEM_GPU_TEMPERATURE},
+                                 {"fanspeed", SYSTEM_FAN_SPEED},
+                                 {"freespace", SYSTEM_FREE_SPACE},
+                                 {"usedspace", SYSTEM_USED_SPACE},
+                                 {"totalspace", SYSTEM_TOTAL_SPACE},
+                                 {"usedspacepercent", SYSTEM_USED_SPACE_PERCENT},
+                                 {"freespacepercent", SYSTEM_FREE_SPACE_PERCENT},
+                                 {"buildversion", SYSTEM_BUILD_VERSION},
+                                 {"buildversionshort", SYSTEM_BUILD_VERSION_SHORT},
+                                 {"buildversioncode", SYSTEM_BUILD_VERSION_CODE},
+                                 {"buildversiongit", SYSTEM_BUILD_VERSION_GIT},
+                                 {"builddate", SYSTEM_BUILD_DATE},
+                                 {"fps", SYSTEM_FPS},
+                                 {"freememory", SYSTEM_FREE_MEMORY},
+                                 {"language", SYSTEM_LANGUAGE},
+                                 {"temperatureunits", SYSTEM_TEMPERATURE_UNITS},
+                                 {"screenmode", SYSTEM_SCREEN_MODE},
+                                 {"screenwidth", SYSTEM_SCREEN_WIDTH},
+                                 {"screenheight", SYSTEM_SCREEN_HEIGHT},
+                                 {"currentwindow", SYSTEM_CURRENT_WINDOW},
+                                 {"currentcontrol", SYSTEM_CURRENT_CONTROL},
+                                 {"currentcontrolid", SYSTEM_CURRENT_CONTROL_ID},
+                                 {"dvdlabel", SYSTEM_DVD_LABEL},
+                                 {"internetstate", SYSTEM_INTERNET_STATE},
+                                 {"osversioninfo", SYSTEM_OS_VERSION_INFO},
+                                 {"kernelversion", SYSTEM_OS_VERSION_INFO}, // old, not correct name
+                                 {"uptime", SYSTEM_UPTIME},
+                                 {"totaluptime", SYSTEM_TOTALUPTIME},
+                                 {"cpufrequency", SYSTEM_CPUFREQUENCY},
+                                 {"screenresolution", SYSTEM_SCREEN_RESOLUTION},
+                                 {"videoencoderinfo", SYSTEM_VIDEO_ENCODER_INFO},
+                                 {"profilename", SYSTEM_PROFILENAME},
+                                 {"profilethumb", SYSTEM_PROFILETHUMB},
+                                 {"profilecount", SYSTEM_PROFILECOUNT},
+                                 {"profileautologin", SYSTEM_PROFILEAUTOLOGIN},
+                                 {"progressbar", SYSTEM_PROGRESS_BAR},
+                                 {"batterylevel", SYSTEM_BATTERY_LEVEL},
+                                 {"friendlyname", SYSTEM_FRIENDLY_NAME},
+                                 {"alarmpos", SYSTEM_ALARM_POS},
+                                 {"isinhibit", SYSTEM_ISINHIBIT},
+                                 {"hasshutdown", SYSTEM_HAS_SHUTDOWN},
+                                 {"haspvr", SYSTEM_HAS_PVR},
+                                 {"startupwindow", SYSTEM_STARTUP_WINDOW},
+                                 {"stereoscopicmode", SYSTEM_STEREOSCOPIC_MODE},
+                                 {"hascms", SYSTEM_HAS_CMS},
+                                 {"privacypolicy", SYSTEM_PRIVACY_POLICY},
+                                 {"haspvraddon", SYSTEM_HAS_PVR_ADDON},
+                                 {"addonupdatecount", SYSTEM_ADDON_UPDATE_COUNT},
+                                 {"supportscpuusage", SYSTEM_SUPPORTS_CPU_USAGE}};
 
 /// \page modules__infolabels_boolean_conditions
 ///   \table_row3{   <b>`System.HasAddon(id)`</b>,
@@ -2580,6 +2666,30 @@ const infomap musicpartymode[] = {{ "enabled",           MUSICPM_ENABLED },
 ///     @skinning_v19 **[New Infolabel]** \link MusicPlayer_BPM `MusicPlayer.BPM`\endlink
 ///     <p>
 ///   }
+///   \table_row3{   <b>`MusicPlayer.IsMultiDisc`</b>,
+///                  \anchor MusicPlayer_IsMultiDisc
+///                  _boolean_,
+///     @return Returns **true** if the album currently playing has more than one disc.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link MusicPlayer_IsMultiDisc `MusicPlayer.IsMultiDisc`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`MusicPlayer.TotalDiscs`</b>,
+///                  \anchor MusicPlayer_TotalDiscs
+///                  _string_,
+///     @return The number of discs associated with the currently playing album.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link MusicPlayer_TotalDiscs `MusicPlayer.TotalDiscs`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`MusicPlayer.Station`</b>,
+///                  \anchor MusicPlayer_Station
+///                  _string_,
+///     @return The name of the radio station currently playing (if available).
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link MusicPlayer_Station `MusicPlayer.Station`\endlink
+///     <p>
+///   }
 /// \table_end
 ///
 /// -----------------------------------------------------------------------------
@@ -2623,7 +2733,10 @@ const infomap musicplayer[] =    {{ "title",            MUSICPLAYER_TITLE },
                                   { "property",         MUSICPLAYER_PROPERTY },
                                   { "releasedate",      MUSICPLAYER_RELEASEDATE },
                                   { "originaldate",     MUSICPLAYER_ORIGINALDATE },
-                                  { "bpm",              MUSICPLAYER_BPM }
+                                  { "bpm",              MUSICPLAYER_BPM },
+                                  { "ismultidisc",      MUSICPLAYER_ISMULTIDISC },
+                                  { "totaldiscs",       MUSICPLAYER_TOTALDISCS },
+                                  { "station",          MUSICPLAYER_STATIONNAME }
 };
 
 /// \page modules__infolabels_boolean_conditions
@@ -4352,6 +4465,54 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///     replaces `ListItem.Property(Addon.UpdateAvail)`.
 ///     <p>
 ///   }
+///   \table_row3{   <b>`ListItem.IsAutoUpdateable`</b>,
+///                  \anchor ListItem_IsAutoUpdateable
+///                  _boolean_,
+///     @return **True** if this add-on can be updated automatically.
+///     <p><hr>
+///     @skinning_v19 **[New Boolean Condition]** \link ListItem_IsAutoUpdateable `ListItem.IsAutoUpdateable`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Addon.IsFromOfficialRepo)`</b>,
+///                  \anchor ListItem_Property_AddonIsFromOfficialRepo
+///                  _boolean_,
+///     @return **True** if this add-on is from an official repository.
+///     <p><hr>
+///     @skinning_v19 **[New Boolean Condition]** \link ListItem_Property_AddonIsFromOfficialRepo `ListItem.Property(Addon.IsFromOfficialRepo)`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Addon.IsBinary)`</b>,
+///                  \anchor ListItem_Property_AddonIsBinary
+///                  _boolean_,
+///     @return **True** if this add-on is a binary addon.
+///     <p><hr>
+///     @skinning_v19 **[New Boolean Condition]** \link ListItem_Property_AddonIsBinary `ListItem.Property(Addon.IsBinary)`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Addon.IsUpdate)`</b>,
+///                  \anchor ListItem_Property_AddonIsUpdate
+///                  _boolean_,
+///     @return **True** if this add-on is a valid update of an installed outdated add-on.
+///     <p><hr>
+///     @skinning_v19 **[New Boolean Condition]** \link ListItem_Property_AddonIsUpdate `ListItem.Property(Addon.IsUpdate)`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Addon.ValidUpdateOrigin)`</b>,
+///                  \anchor ListItem_Property_ValidUpdateOrigin
+///                  _string_,
+///     @return The origin string of a valid update for the addon. Empty string if there is no valid update available.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_Property_ValidUpdateOrigin `ListItem.Property(Addon.ValidUpdateOrigin)`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Addon.ValidUpdateVersion)`</b>,
+///                  \anchor ListItem_Property_ValidUpdateVersion
+///                  _string_,
+///     @return The version string of a valid update for the addon. Empty string if there is no valid update available.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_Property_ValidUpdateVersion `ListItem.Property(Addon.ValidUpdateVersion)`\endlink
+///     <p>
+///   }
 ///   \table_row3{   <b>`ListItem.Label`</b>,
 ///                  \anchor ListItem_Label
 ///                  _string_,
@@ -4553,6 +4714,14 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///     @return **True** if the album is a boxset.
 ///     <p><hr>
 ///     @skinning_v19 **[New Infobool]** \link ListItem.Property(Album_Isboxset) `ListItem.Property(Album_Isboxset)`\endlink
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.Property(Album_Duration)`</b>,
+///                  \anchor ListItem_Property_Album_Duration
+///                  _string_,
+///     @return The duration of the album in HH:MM:SS.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_Property_Album_Duration `ListItem.Property(Album_Duration)`\endlink
 ///     <p>
 ///   }
 ///   \table_row3{   <b>`ListItem.DiscNumber`</b>,
@@ -5545,6 +5714,7 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///                  _string_,
 ///     @return The video codec of the currently selected video. Common values:
 ///      - <b>3iv2</b>
+///      - <b>av1</b>
 ///      - <b>avc1</b>
 ///      - <b>div2</b>
 ///      - <b>div3</b>
@@ -6016,11 +6186,35 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///                  \anchor ListItem_AddonBroken
 ///                  _string_,
 ///     @return A message when the addon is marked as broken in the repo.
+///     @deprecated but still available\, use \ref ListItem_AddonLifecycleDesc "ListItem.AddonLifecycleDesc"
+///     instead
 ///     <p><hr>
 ///     @skinning_v17 **[Infolabel Updated]** \link ListItem_AddonBroken `ListItem.AddonBroken`\endlink
 ///     replaces `ListItem.Property(Addon.Broken)`.
 ///     <p>
 ///   }
+///   \table_row3{   <b>`ListItem.AddonLifecycleType`</b>,
+///                  \anchor ListItem_AddonLifecycleType
+///                  _string_,
+///     @return String name when the addon is marked as special condition in the repo.
+///       - <b>Label: 24169 (Normal)</b> - Used if an add-on has no special lifecycle state which is the default state
+///       - <b>Label: 24170 (Deprecated)</b> - The add-on should be marked as deprecated but is still usable
+///       - <b>Label: 24171 (Broken)</b> - The add-on should marked as broken in the repository
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_AddonLifecycleType `ListItem.AddonLifecycleType`\endlink
+///     replaces `ListItem.AddonBroken`.
+///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.AddonLifecycleDesc`</b>,
+///                  \anchor ListItem_AddonLifecycleDesc
+///                  _string_,
+///     @return From addon defined message text when it is marked as special condition inside repository.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_AddonLifecycleDesc `ListItem.AddonLifecycleDesc``\endlink
+///     replaces `ListItem.AddonBroken`.
+///     <p>
+///   }
+
 ///   \table_row3{   <b>`ListItem.AddonType`</b>,
 ///                  \anchor ListItem_AddonType
 ///                  _string_,
@@ -6384,6 +6578,8 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///     @return The BPM of a song.
 ///     <p><hr>
 ///     @skinning_v19 **[New Infolabel]** \link ListItem_BPM `ListItem.BPM`\endlink
+///     <p>
+///   }
 ///   \table_row3{   <b>`ListItem.UniqueID(name)`</b>,
 ///                  \anchor ListItem_UniqueID
 ///                  _string_,
@@ -6397,18 +6593,20 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///   \table_row3{   <b>`ListItem.BitRate`</b>,
 ///                  \anchor ListItem_BitRate
 ///                  _string_,
-///     @return The bitrate of a song. Actual rate for CBR, average rate for VBR.
+///     @return The bitrate of a song. Actual rate for CBR\, average rate for VBR.
 ///     <p><hr>
 ///     @skinning_v19 **[New Infolabel]** \link ListItem_BitRate `ListItem.BitRate`\endlink
 ///     <p>
-///   }///   \table_row3{   <b>`ListItem.SampleRate`</b>,
+///   }
+///   \table_row3{   <b>`ListItem.SampleRate`</b>,
 ///                  \anchor ListItem_SampleRate
 ///                  _string_,
-///     @return The sample rate of a song / 1000.0 eg 44.1, 48, 96 etc.
+///     @return The sample rate of a song / 1000.0 eg 44.1\, 48\, 96 etc.
 ///     <p><hr>
 ///     @skinning_v19 **[New Infolabel]** \link ListItem_SampleRate `ListItem.SampleRate`\endlink
 ///     <p>
-///   }///   \table_row3{   <b>`ListItem.MusicChannels`</b>,
+///   }
+///   \table_row3{   <b>`ListItem.MusicChannels`</b>,
 ///                  \anchor ListItem_MusicChannels
 ///                  _string_,
 ///     @return The number of audio channels of a song.
@@ -6423,6 +6621,13 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///     <p><hr>
 ///     @skinning_v19 **[New Infolabel]** \link ListItem_TvShowDBID `ListItem.TvShowDBID`\endlink
 ///     <p>
+///   }
+///   \table_row3{   <b>`ListItem.AlbumStatus`</b>,
+///                  \anchor ListItem_AlbumStatus
+///                  _string_,
+///     @return The Musicbrainz release status of the album (offical, bootleg, promotion etc)
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link ListItem_AlbumStatus `ListItem.AlbumStatus`\endlink
 ///   }
 /// \table_end
 ///
@@ -6605,6 +6810,8 @@ const infomap listitem_labels[]= {{ "thumb",            LISTITEM_THUMB },
                                   { "addondisclaimer",  LISTITEM_ADDON_DISCLAIMER },
                                   { "addonnews",        LISTITEM_ADDON_NEWS },
                                   { "addonbroken",      LISTITEM_ADDON_BROKEN },
+                                  { "addonlifecycletype", LISTITEM_ADDON_LIFECYCLE_TYPE },
+                                  { "addonlifecycledesc", LISTITEM_ADDON_LIFECYCLE_DESC },
                                   { "addontype",        LISTITEM_ADDON_TYPE },
                                   { "addoninstalldate", LISTITEM_ADDON_INSTALL_DATE },
                                   { "addonlastupdated", LISTITEM_ADDON_LAST_UPDATED },
@@ -6631,6 +6838,8 @@ const infomap listitem_labels[]= {{ "thumb",            LISTITEM_THUMB },
                                   { "isfinale",         LISTITEM_IS_FINALE },
                                   { "islive",           LISTITEM_IS_LIVE },
                                   { "tvshowdbid",       LISTITEM_TVSHOWDBID },
+                                  { "albumstatus",      LISTITEM_ALBUMSTATUS },
+                                  { "isautoupdateable", LISTITEM_ISAUTOUPDATEABLE },
 };
 
 /// \page modules__infolabels_boolean_conditions
@@ -7261,6 +7470,14 @@ const infomap playlist[] =       {{ "length",           PLAYLIST_LENGTH },
 ///     @return The position of currently timeshifted title on TV as integer.
 ///     <p>
 ///   }
+///   \table_row3{   <b>`PVR.TimeShiftSeekbar`</b>,
+///                  \anchor PVR_TimeShiftSeekbar
+///                  _integer_,
+///     @return The percentage we are seeking to in a timeshifted title.
+///     <p><hr>
+///     @skinning_v19 **[New Infolabel]** \link PVR_TimeShiftSeekbar `PVR.TimeShiftSeekbar`\endlink
+///     <p>
+///   }
 ///   \table_row3{   <b>`PVR.NowRecordingTitle`</b>,
 ///                  \anchor PVR_NowRecordingTitle
 ///                  _string_,
@@ -7606,6 +7823,7 @@ const infomap pvr[] =            {{ "isrecording",              PVR_IS_RECORDING
                                   { "actstreamprovidername",    PVR_ACTUAL_STREAM_PROVIDER },
                                   { "istimeshift",              PVR_IS_TIMESHIFTING },
                                   { "timeshiftprogress",        PVR_TIMESHIFT_PROGRESS },
+                                  { "timeshiftseekbar",         PVR_TIMESHIFT_SEEKBAR },
                                   { "nowrecordingtitle",        PVR_NOW_RECORDING_TITLE },
                                   { "nowrecordingdatetime",     PVR_NOW_RECORDING_DATETIME },
                                   { "nowrecordingchannel",      PVR_NOW_RECORDING_CHANNEL },
@@ -9201,6 +9419,11 @@ const infomap slideshow[] =      {{ "ispaused",               SLIDESHOW_ISPAUSED
 /// \page modules__infolabels_boolean_conditions
 /// \section modules_rm_infolabels_booleans Additional revision history for Infolabels and Boolean Conditions
 /// <hr>
+/// \subsection modules_rm_infolabels_booleans_v19 Kodi v19 (Matrix)
+/// @skinning_v19 **[Removed Infolabels]** The following infolabels have been removed:
+///   - `System.Platform.Linux.RaspberryPi` - use \link System_Platform_Linux `System.Platform.Linux`\endlink instead
+///
+/// <hr>
 /// \subsection modules_rm_infolabels_booleans_v18 Kodi v18 (Leia)
 ///
 /// @skinning_v18 **[Removed Infolabels]** The following infolabels have been removed:
@@ -9851,15 +10074,7 @@ int CGUIInfoManager::TranslateSingleString(const std::string &strCondition, bool
     { //! @todo replace with a single system.platform
       std::string platform = info[2].name;
       if (platform == "linux")
-      {
-        if (info.size() == 4)
-        {
-          std::string device = info[3].name;
-          if (device == "raspberrypi")
-            return SYSTEM_PLATFORM_LINUX_RASPBERRY_PI;
-        }
-        else return SYSTEM_PLATFORM_LINUX;
-      }
+        return SYSTEM_PLATFORM_LINUX;
       else if (platform == "windows")
         return SYSTEM_PLATFORM_WINDOWS;
       else if (platform == "uwp")
@@ -9902,6 +10117,21 @@ int CGUIInfoManager::TranslateSingleString(const std::string &strCondition, bool
       {
         int position = atoi(info[1].param().c_str());
         int value = TranslateVideoPlayerString(info[2].name); // videoplayer.offset(foo).bar
+        return AddMultiInfo(CGUIInfo(value, 1, position)); // 1 => relative
+      }
+    }
+    else if (info[0].name == "player")
+    { //! @todo these two don't allow duration(foo) and also don't allow more than this number of levels...
+      if (info[1].name == "position")
+      {
+        int position = atoi(info[1].param().c_str());
+        int value = TranslatePlayerString(info[2].name); // player.position(foo).bar
+        return AddMultiInfo(CGUIInfo(value, 2, position)); // 2 => absolute (0 used for not set)
+      }
+      else if (info[1].name == "offset")
+      {
+        int position = atoi(info[1].param().c_str());
+        int value = TranslatePlayerString(info[2].name); // player.offset(foo).bar
         return AddMultiInfo(CGUIInfo(value, 1, position)); // 1 => relative
       }
     }
@@ -10014,6 +10244,16 @@ int CGUIInfoManager::TranslateMusicPlayerString(const std::string &info) const
 int CGUIInfoManager::TranslateVideoPlayerString(const std::string& info) const
 {
   for (const infomap& i : videoplayer)
+  {
+    if (info == i.str)
+      return i.val;
+  }
+  return 0;
+}
+
+int CGUIInfoManager::TranslatePlayerString(const std::string& info) const
+{
+  for (const infomap& i : player_labels)
   {
     if (info == i.str)
       return i.val;
@@ -10199,6 +10439,9 @@ bool CGUIInfoManager::GetMultiInfoBool(const CGUIInfo &info, int contextWindow, 
         else
           bReturn = GetImage(info.GetData1(), contextWindow).empty();
         break;
+      case STRING_STARTS_WITH:
+      case STRING_ENDS_WITH:
+      case STRING_CONTAINS:
       case STRING_IS_EQUAL:
         {
           std::string compare;
@@ -10229,10 +10472,23 @@ bool CGUIInfoManager::GetMultiInfoBool(const CGUIInfo &info, int contextWindow, 
           { // conditional string
             compare = info.GetData3();
           }
+          StringUtils::ToLower(compare);
+
+          std::string label;
           if (item && item->IsFileItem() && IsListItemInfo(info.GetData1()))
-            bReturn = StringUtils::EqualsNoCase(GetItemImage(item, contextWindow, info.GetData1()), compare);
+            label = GetItemImage(item, contextWindow, info.GetData1());
           else
-            bReturn = StringUtils::EqualsNoCase(GetImage(info.GetData1(), contextWindow), compare);
+            label = GetImage(info.GetData1(), contextWindow);
+          StringUtils::ToLower(label);
+
+          if (condition == STRING_STARTS_WITH)
+            bReturn = StringUtils::StartsWith(label, compare);
+          else if (condition == STRING_ENDS_WITH)
+            bReturn = StringUtils::EndsWith(label, compare);
+          else if (condition == STRING_CONTAINS)
+            bReturn = label.find(compare) != std::string::npos;
+          else
+            bReturn = StringUtils::EqualsNoCase(label, compare);
         }
         break;
       case INTEGER_IS_EQUAL:
@@ -10275,27 +10531,6 @@ bool CGUIInfoManager::GetMultiInfoBool(const CGUIInfo &info, int contextWindow, 
             bReturn = integer % 2 == 0;
           else if (condition == INTEGER_ODD)
             bReturn = integer % 2 != 0;
-        }
-        break;
-      case STRING_STARTS_WITH:
-      case STRING_ENDS_WITH:
-      case STRING_CONTAINS:
-        {
-          std::string compare = info.GetData3();
-          // our compare string is already in lowercase, so lower case our label as well
-          // as std::string::Find() is case sensitive
-          std::string label;
-          if (item && item->IsFileItem() && IsListItemInfo(info.GetData1()))
-            label = GetItemImage(item, contextWindow, info.GetData1());
-          else
-            label = GetImage(info.GetData1(), contextWindow);
-          StringUtils::ToLower(label);
-          if (condition == STRING_STARTS_WITH)
-            bReturn = StringUtils::StartsWith(label, compare);
-          else if (condition == STRING_ENDS_WITH)
-            bReturn = StringUtils::EndsWith(label, compare);
-          else
-            bReturn = label.find(compare) != std::string::npos;
         }
         break;
     }
@@ -10413,7 +10648,7 @@ void CGUIInfoManager::SetCurrentItem(const CFileItem &item)
 
   m_infoProviders.InitCurrentItem(m_currentFile);
 
-  CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Info, "xbmc", "OnChanged");
+  CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Info, "OnChanged");
 }
 
 void CGUIInfoManager::SetCurrentAlbumThumb(const std::string &thumbFileName)

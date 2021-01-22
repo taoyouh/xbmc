@@ -82,6 +82,9 @@ public:
   int GetBitRate() const;
   int GetNoOfChannels() const;
   int GetSampleRate() const;
+  const std::string& GetAlbumReleaseStatus() const;
+  const std::string& GetStationName() const;
+  const std::string& GetStationArt() const;
   const EmbeddedArtInfo &GetCoverArtInfo() const;
   const ReplayGain& GetReplayGain() const;
   CAlbum::ReleaseType GetAlbumReleaseType() const;
@@ -104,7 +107,7 @@ public:
   void SetYear(int year);
   void SetOriginalDate(const std::string& strOriginalDate);
   void SetReleaseDate(const std::string& strReleaseDate);
-  void SetDatabaseId(long id, const std::string &type);
+  void SetDatabaseId(int id, const std::string &type);
   void SetTrackNumber(int iTrack);
   void SetDiscNumber(int iDiscNumber);
   void SetTrackAndDiscNumber(int iTrackAndDisc);
@@ -134,19 +137,26 @@ public:
   void SetLastPlayed(const std::string& strLastPlayed);
   void SetLastPlayed(const CDateTime& strLastPlayed);
   void SetDateAdded(const std::string& strDateAdded);
-  void SetDateAdded(const CDateTime& strDateAdded);
+  void SetDateAdded(const CDateTime& dateAdded);
+  void SetDateUpdated(const std::string& strDateUpdated);
+  void SetDateUpdated(const CDateTime& dateUpdated);
+  void SetDateNew(const std::string& strDateNew);
+  void SetDateNew(const CDateTime& dateNew);
   void SetCompilation(bool compilation);
   void SetBoxset(bool boxset);
   void SetCoverArtInfo(size_t size, const std::string &mimeType);
   void SetReplayGain(const ReplayGain& aGain);
   void SetAlbumReleaseType(CAlbum::ReleaseType releaseType);
-  void SetType(const MediaType mediaType);
+  void SetType(const MediaType& mediaType);
   void SetDiscSubtitle(const std::string& strDiscSubtitle);
   void SetTotalDiscs(int iDiscTotal);
   void SetBPM(int iBPM);
   void SetBitRate(int bitrate);
   void SetNoOfChannels(int channels);
   void SetSampleRate(int samplerate);
+  void SetAlbumReleaseStatus(const std::string& strReleaseStatus);
+  void SetStationName(const std::string& strStationName); // name of online radio station
+  void SetStationArt(const std::string& strStationArt);
 
   /*! \brief Append a unique artist to the artist list
    Checks if we have this artist already added, and if not adds it to the songs artist list.
@@ -220,7 +230,9 @@ protected:
   std::string m_strReleaseDate; //ISO8601 date YYYY, YYYY-MM or YYYY-MM-DD
   std::string m_strOriginalDate; //ISO8601 date YYYY, YYYY-MM or YYYY-MM-DD
   CDateTime m_lastPlayed;
+  CDateTime m_dateNew;
   CDateTime m_dateAdded;
+  CDateTime m_dateUpdated;
   bool m_bCompilation;
   int m_iDuration;
   int m_iTrack;     // consists of the disk number in the high 16 bits, the track number in the low 16bits
@@ -237,9 +249,12 @@ protected:
   bool m_bBoxset;
   int m_iBPM;
   CAlbum::ReleaseType m_albumReleaseType;
+  std::string m_strReleaseStatus;
   int m_samplerate;
   int m_channels;
   int m_bitrate;
+  std::string m_stationName;
+  std::string m_stationArt; // Used to fetch thumb URL for Shoutcasts
 
   EmbeddedArtInfo m_coverArt; ///< art information
 

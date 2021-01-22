@@ -236,13 +236,13 @@ void SqliteDatabase::setHostName(const char *newHost) {
   if ( (host[1] == ':') && isalpha(host[0]))
   {
     size_t pos = 0;
-    while ( (pos = host.find("/", pos)) != std::string::npos )
+    while ((pos = host.find('/', pos)) != std::string::npos)
       host.replace(pos++, 1, "\\");
   }
   else
   {
     size_t pos = 0;
-    while ( (pos = host.find("\\", pos)) != std::string::npos )
+    while ((pos = host.find('\\', pos)) != std::string::npos)
       host.replace(pos++, 1, "/");
   }
 }
@@ -284,6 +284,12 @@ const char *SqliteDatabase::getErrorMsg() {
    return error.c_str();
 }
 
+static int AlphaNumericCollation(
+    void* not_used, int nKey1, const void* pKey1, int nKey2, const void* pKey2)
+{
+  return StringUtils::AlphaNumericCollation(nKey1, pKey1, nKey2, pKey2);
+}
+
 int SqliteDatabase::connect(bool create) {
   if (host.empty() || db.empty())
     return DB_CONNECTION_NONE;
@@ -317,6 +323,12 @@ int SqliteDatabase::connect(bool create) {
       {
         CLog::Log(LOGFATAL, "SqliteDatabase: %s is read only", db_fullpath.c_str());
         throw std::runtime_error("SqliteDatabase: " + db_fullpath + " is read only");
+      }
+      errorCode = sqlite3_create_collation(conn, "ALPHANUM", SQLITE_UTF8, 0, AlphaNumericCollation);
+      if (errorCode != SQLITE_OK)
+      {
+        CLog::Log(LOGFATAL, "SqliteDatabase: can not register collation");
+        throw std::runtime_error("SqliteDatabase: can not register collation " + db_fullpath);
       }
       active = true;
       return DB_CONNECTION_OK;
@@ -461,19 +473,22 @@ long SqliteDatabase::nextid(const char* sname) {
   int id;/*,nrow,ncol;*/
   result_set res;
   char sqlcmd[512];
-  sprintf(sqlcmd,"select nextid from %s where seq_name = '%s'",sequence_table.c_str(), sname);
+  snprintf(sqlcmd, sizeof(sqlcmd), "SELECT nextid FROM %s WHERE seq_name = '%s'",
+           sequence_table.c_str(), sname);
   if ((last_err = sqlite3_exec(getHandle(),sqlcmd,&callback,&res,NULL)) != SQLITE_OK) {
     return DB_UNEXPECTED_RESULT;
     }
   if (res.records.empty()) {
     id = 1;
-    sprintf(sqlcmd,"insert into %s (nextid,seq_name) values (%d,'%s')",sequence_table.c_str(),id,sname);
+    snprintf(sqlcmd, sizeof(sqlcmd), "INSERT INTO %s (nextid,seq_name) VALUES (%d,'%s')",
+             sequence_table.c_str(), id, sname);
     if ((last_err = sqlite3_exec(conn,sqlcmd,NULL,NULL,NULL)) != SQLITE_OK) return DB_UNEXPECTED_RESULT;
     return id;
   }
   else {
     id = res.records[0]->at(0).get_asInt()+1;
-    sprintf(sqlcmd,"update %s set nextid=%d where seq_name = '%s'",sequence_table.c_str(),id,sname);
+    snprintf(sqlcmd, sizeof(sqlcmd), "UPDATE %s SET nextid=%d WHERE seq_name = '%s'",
+             sequence_table.c_str(), id, sname);
     if ((last_err = sqlite3_exec(conn,sqlcmd,NULL,NULL,NULL)) != SQLITE_OK) return DB_UNEXPECTED_RESULT;
     return id;
   }
@@ -746,12 +761,12 @@ int SqliteDataset::exec(const std::string &sql) {
     size_t pos = 0;
     size_t pos2 = 0;
 
-    if ( (pos = qry.find("(")) != std::string::npos )
+    if ((pos = qry.find('(')) != std::string::npos)
     {
       pos++;
-      while ( (pos = qry.find("(", pos)) != std::string::npos )
+      while ((pos = qry.find('(', pos)) != std::string::npos)
       {
-        if ( (pos2 = qry.find(")", pos)) != std::string::npos )
+        if ((pos2 = qry.find(')', pos)) != std::string::npos)
         {
           qry.replace(pos, pos2-pos+1, "");
           pos = pos2;
@@ -793,7 +808,7 @@ const void* SqliteDataset::getExecRes() {
 
 bool SqliteDataset::query(const std::string &query) {
     if(!handle()) throw DbErrors("No Database Connection");
-    std::string qry = query;
+    const std::string& qry = query;
     int fs = qry.find("select");
     int fS = qry.find("SELECT");
     if (!( fs >= 0 || fS >=0))

@@ -20,21 +20,21 @@
 #if defined(TARGET_ANDROID)
 #include "platform/android/filesystem/APKDirectory.h"
 #endif
-#include "XbtDirectory.h"
-#include "ZipDirectory.h"
-#include "SmartPlaylistDirectory.h"
-#include "playlists/SmartPlayList.h"
-#include "PlaylistFileDirectory.h"
-#include "playlists/PlayListFactory.h"
+#include "AudioBookFileDirectory.h"
 #include "Directory.h"
 #include "FileItem.h"
-#include "utils/StringUtils.h"
-#include "URL.h"
+#include "PlaylistFileDirectory.h"
 #include "ServiceBroker.h"
+#include "SmartPlaylistDirectory.h"
+#include "URL.h"
+#include "XbtDirectory.h"
+#include "ZipDirectory.h"
 #include "addons/AudioDecoder.h"
 #include "addons/VFSEntry.h"
-#include "addons/binary-addons/BinaryAddonBase.h"
-#include "AudioBookFileDirectory.h"
+#include "playlists/PlayListFactory.h"
+#include "playlists/SmartPlayList.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
 
 using namespace ADDON;
 using namespace XFILE;
@@ -54,8 +54,8 @@ IFileDirectory* CFileDirectoryFactory::Create(const CURL& url, CFileItem* pItem,
   StringUtils::ToLower(strExtension);
   if (!strExtension.empty() && CServiceBroker::IsBinaryAddonCacheUp())
   {
-    BinaryAddonBaseList addonInfos;
-    CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true, ADDON_AUDIODECODER);
+    std::vector<AddonInfoPtr> addonInfos;
+    CServiceBroker::GetAddonMgr().GetAddonInfos(addonInfos, true, ADDON_AUDIODECODER);
     for (const auto& addonInfo : addonInfos)
     {
       if (CAudioDecoder::HasTracks(addonInfo))
@@ -67,7 +67,11 @@ IFileDirectory* CFileDirectoryFactory::Create(const CURL& url, CFileItem* pItem,
           if (!result->CreateDecoder() || !result->ContainsFiles(url))
           {
             delete result;
-            return nullptr;
+            CLog::Log(LOGINFO,
+                      "CFileDirectoryFactory::{}: Addon '{}' support extension '{}' but creation "
+                      "failed (seems not supported), trying other addons and Kodi",
+                      __func__, addonInfo->ID(), strExtension);
+            continue;
           }
           return result;
         }

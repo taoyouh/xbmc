@@ -18,6 +18,8 @@
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
 
+#include <utility>
+
 CAnimEffect::CAnimEffect(const TiXmlElement *node, EFFECT_TYPE effect)
 {
   m_effect = effect;
@@ -427,7 +429,7 @@ void CAnimation::Animate(unsigned int time, bool startAnim)
       m_start = time;
     m_currentProcess = ANIM_PROCESS_REVERSE;
   }
-  // reset the queued state once we've rendered to ensure allocation has occured
+  // reset the queued state once we've rendered to ensure allocation has occurred
   m_queuedProcess = ANIM_PROCESS_NONE;
 
   // Update our animation process
@@ -695,7 +697,7 @@ CScroller::CScroller(unsigned int duration /* = 200 */, std::shared_ptr<Tweener>
   m_startPosition = 0;
   m_hasResumePoint = false;
   m_duration = duration > 0 ? duration : 1;
-  m_pTweener = tweener;
+  m_pTweener = std::move(tweener);
 }
 
 CScroller::CScroller(const CScroller& right)

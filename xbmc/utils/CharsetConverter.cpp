@@ -505,10 +505,13 @@ bool CCharsetConverter::CInnerConverter::logicalToVisualBiDi(
     bool bidiFailed = false;
     FriBidiCharType baseCopy = base; // preserve same value for all lines, required because fribidi_log2vis will modify parameter value
     if (fribidi_log2vis(reinterpret_cast<const FriBidiChar*>(stringSrc.c_str() + lineStart),
-                        lineLen, &baseCopy, visual, nullptr, visualToLogicalMap, nullptr))
+                        lineLen, &baseCopy, visual, nullptr,
+                        !visualToLogicalMap ? nullptr : visualToLogicalMap + lineStart, nullptr))
     {
       // Removes bidirectional marks
-      const int newLen = fribidi_remove_bidi_marks(visual, lineLen, NULL, NULL, NULL);
+      const int newLen = fribidi_remove_bidi_marks(
+          visual, lineLen, nullptr, !visualToLogicalMap ? nullptr : visualToLogicalMap + lineStart,
+          nullptr);
       if (newLen > 0)
         stringDst.append((const char32_t*)visual, (size_t)newLen);
       else if (newLen < 0)
@@ -562,7 +565,7 @@ static struct SCharsetMapping
 
 CCharsetConverter::CCharsetConverter() = default;
 
-void CCharsetConverter::OnSettingChanged(std::shared_ptr<const CSetting> setting)
+void CCharsetConverter::OnSettingChanged(const std::shared_ptr<const CSetting>& setting)
 {
   if (setting == NULL)
     return;
@@ -857,7 +860,10 @@ bool CCharsetConverter::utf8logicalToVisualBiDi(const std::string& utf8StringSrc
   return CInnerConverter::stdConvert(Utf32ToUtf8, utf32flipped, utf8StringDst, failOnBadString);
 }
 
-void CCharsetConverter::SettingOptionsCharsetsFiller(SettingConstPtr setting, std::vector<StringSettingOption>& list, std::string& current, void *data)
+void CCharsetConverter::SettingOptionsCharsetsFiller(const SettingConstPtr& setting,
+                                                     std::vector<StringSettingOption>& list,
+                                                     std::string& current,
+                                                     void* data)
 {
   std::vector<std::string> vecCharsets = g_charsetConverter.getCharsetLabels();
   sort(vecCharsets.begin(), vecCharsets.end(), sortstringbyname());

@@ -37,6 +37,7 @@
 #define SETTING_XML_ELM_STEP "step"
 #define SETTING_XML_ELM_MAXIMUM "maximum"
 #define SETTING_XML_ELM_ALLOWEMPTY "allowempty"
+#define SETTING_XML_ELM_ALLOWNEWOPTION "allownewoption"
 #define SETTING_XML_ELM_DEPENDENCIES "dependencies"
 #define SETTING_XML_ELM_DEPENDENCY "dependency"
 #define SETTING_XML_ELM_UPDATES "updates"
@@ -109,8 +110,14 @@ using TranslatableStringSettingOptions = std::vector<TranslatableStringSettingOp
 using StringSettingOptions = std::vector<StringSettingOption>;
 
 class CSetting;
-using IntegerSettingOptionsFiller = void (*)(std::shared_ptr<const CSetting> setting, IntegerSettingOptions &list, int &current, void *data);
-using StringSettingOptionsFiller = void (*)(std::shared_ptr<const CSetting> setting, StringSettingOptions &list, std::string &current, void *data);
+using IntegerSettingOptionsFiller = void (*)(const std::shared_ptr<const CSetting>& setting,
+                                             IntegerSettingOptions& list,
+                                             int& current,
+                                             void* data);
+using StringSettingOptionsFiller = void (*)(const std::shared_ptr<const CSetting>& setting,
+                                            StringSettingOptions& list,
+                                            std::string& current,
+                                            void* data);
 
 enum class SettingOptionsSort
 {

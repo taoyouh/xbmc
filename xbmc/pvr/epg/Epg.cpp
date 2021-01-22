@@ -60,11 +60,7 @@ CPVREpg::~CPVREpg()
 
 void CPVREpg::ForceUpdate()
 {
-  {
-    CSingleLock lock(m_critSection);
-    m_bUpdatePending = true;
-  }
-
+  m_bUpdatePending = true;
   m_events.Publish(PVREvent::EpgUpdatePending);
 }
 
@@ -123,6 +119,12 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpg::GetTagByBroadcastId(unsigned int iUniqu
 {
   CSingleLock lock(m_critSection);
   return m_tags.GetTag(iUniqueBroadcastId);
+}
+
+std::shared_ptr<CPVREpgInfoTag> CPVREpg::GetTagByDatabaseId(int iDatabaseId) const
+{
+  CSingleLock lock(m_critSection);
+  return m_tags.GetTagByDatabaseID(iDatabaseId);
 }
 
 std::shared_ptr<CPVREpgInfoTag> CPVREpg::GetTagBetween(const CDateTime& beginTime, const CDateTime& endTime, bool bUpdateFromClient /* = false */)
@@ -210,6 +212,7 @@ bool CPVREpg::UpdateEntry(const std::shared_ptr<CPVREpgInfoTag>& tag, EPG_EVENT_
 
   if (newState == EPG_EVENT_CREATED || newState == EPG_EVENT_UPDATED)
   {
+    CSingleLock lock(m_critSection);
     bRet = !IsTagExpired(tag) && m_tags.UpdateEntry(tag);
   }
   else if (newState == EPG_EVENT_DELETED)
@@ -234,7 +237,7 @@ bool CPVREpg::UpdateEntry(const std::shared_ptr<CPVREpgInfoTag>& tag, EPG_EVENT_
   }
   else
   {
-    CLog::LogF(LOGERROR, "Unknown epg event state value: %d", newState);
+    CLog::LogF(LOGERROR, "Unknown epg event state value: {}", newState);
     bRet = false;
   }
 
@@ -251,37 +254,66 @@ bool CPVREpg::Update(time_t start,
                      const std::shared_ptr<CPVREpgDatabase>& database,
                      bool bForceUpdate /* = false */)
 {
-  bool bGrabSuccess = true;
   bool bUpdate = false;
+  std::shared_ptr<CPVREpg> tmpEpg;
 
-  /* clean up if needed */
+  {
+    CSingleLock lock(m_critSection);
+
+    if (!m_lastScanTime.IsValid())
+    {
+      database->GetLastEpgScanTime(m_iEpgID, &m_lastScanTime);
+
+      if (!m_lastScanTime.IsValid())
+      {
+        m_lastScanTime.SetFromUTCDateTime(time_t(0));
+        m_bUpdateLastScanTime = true;
+      }
+    }
+
+    // enforce advanced settings update interval override for channels with no EPG data
+    if (m_tags.IsEmpty() && m_channelData->ChannelId() > 0) //! @todo why the channelid check?
+      iUpdateTime = CServiceBroker::GetSettingsComponent()
+                        ->GetAdvancedSettings()
+                        ->m_iEpgUpdateEmptyTagsInterval;
+
+    if (bForceUpdate)
+    {
+      bUpdate = true;
+    }
+    else
+    {
+      // check if we have to update
+      time_t iNow = 0;
+      CDateTime::GetUTCDateTime().GetAsTime(iNow);
+
+      time_t iLastUpdate = 0;
+      m_lastScanTime.GetAsTime(iLastUpdate);
+
+      bUpdate = (iNow > iLastUpdate + iUpdateTime);
+    }
+
+    if (bUpdate)
+    {
+      tmpEpg = std::make_shared<CPVREpg>(m_iEpgID, m_strName, m_strScraperName, m_channelData,
+                                         std::shared_ptr<CPVREpgDatabase>());
+    }
+  }
+
+  // remove obsolete tags
   Cleanup(iPastDays);
 
-  /* enforce advanced settings update interval override for channels with no EPG data */
-  if (m_tags.IsEmpty() && !bUpdate && ChannelID() > 0)
-    iUpdateTime = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_iEpgUpdateEmptyTagsInterval;
-
-  if (!bForceUpdate)
-  {
-    /* check if we have to update */
-    time_t iNow = 0;
-    time_t iLastUpdate = 0;
-    CDateTime::GetUTCDateTime().GetAsTime(iNow);
-    m_lastScanTime.GetAsTime(iLastUpdate);
-    bUpdate = (iNow > iLastUpdate + iUpdateTime);
-  }
-  else
-    bUpdate = true;
+  bool bGrabSuccess = true;
 
   if (bUpdate)
-    bGrabSuccess = LoadFromClients(start, end, bForceUpdate);
+  {
+    bGrabSuccess = tmpEpg->UpdateFromScraper(start, end, bForceUpdate) && UpdateEntries(*tmpEpg);
 
-  if (!bGrabSuccess)
-    CLog::LogF(LOGERROR, "Failed to update table '%s'", Name().c_str());
+    if (!bGrabSuccess)
+      CLog::LogF(LOGERROR, "Failed to update table '{}'", Name());
+  }
 
-  CSingleLock lock(m_critSection);
   m_bUpdatePending = false;
-
   return bGrabSuccess;
 }
 
@@ -291,65 +323,40 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpg::GetTags() const
   return m_tags.GetAllTags();
 }
 
-bool CPVREpg::Persist(const std::shared_ptr<CPVREpgDatabase>& database, bool bQueueWrite)
+bool CPVREpg::QueuePersistQuery(const std::shared_ptr<CPVREpgDatabase>& database)
 {
+  // Note: It is guaranteed that both this EPG instance and database instance are already
+  //       locked when this method gets called! No additional locking is needed here!
+
   if (!database)
   {
     CLog::LogF(LOGERROR, "No EPG database");
     return false;
   }
 
-  bool bLastScanTimeNeedsSave = false;
-  bool bTagsNeedSave = false;
-  bool bEpgNeedsSave = false;
-  int iEpgID = -1;
-  std::string name;
-  std::string scraper;
-  CDateTime lastScanTime;
-
+  if (m_iEpgID <= 0 || m_bChanged)
   {
-    CSingleLock lock(m_critSection);
-
-    bLastScanTimeNeedsSave = m_bUpdateLastScanTime;
-    bTagsNeedSave = m_tags.NeedsSave();
-    bEpgNeedsSave = m_iEpgID <= 0 || m_bChanged;
-    iEpgID = m_iEpgID;
-    name = m_strName;
-    scraper = m_strScraperName;
-    lastScanTime = m_lastScanTime;
-
-    m_bChanged = false;
-    m_bUpdateLastScanTime = false;
+    const int iId = database->Persist(*this, m_iEpgID > 0);
+    if (iId > 0 && m_iEpgID != iId)
+    {
+      m_iEpgID = iId;
+      m_tags.SetEpgID(iId);
+    }
   }
 
-  database->Lock();
+  if (m_tags.NeedsSave())
+    m_tags.QueuePersistQuery();
 
-  int iNewEpgID = iEpgID;
-  if (bEpgNeedsSave)
-    iNewEpgID = database->Persist(iEpgID, name, scraper, iEpgID > 0);
+  if (m_bUpdateLastScanTime)
+    database->QueuePersistLastEpgScanTimeQuery(m_iEpgID, m_lastScanTime);
 
-  if (bLastScanTimeNeedsSave)
-    database->PersistLastEpgScanTime(iNewEpgID, lastScanTime, bQueueWrite);
+  m_bChanged = false;
+  m_bUpdateLastScanTime = false;
 
-  bool bRet = bQueueWrite || database->CommitInsertQueries();
-
-  database->Unlock();
-
-  if (iNewEpgID > 0 && iNewEpgID != iEpgID)
-  {
-    CSingleLock lock(m_critSection);
-
-    m_iEpgID = iNewEpgID;
-    m_tags.SetEpgID(iNewEpgID);
-  }
-
-  if (bTagsNeedSave)
-    m_tags.Persist(!bQueueWrite);
-
-  return bRet;
+  return true;
 }
 
-bool CPVREpg::Delete(const std::shared_ptr<CPVREpgDatabase>& database)
+bool CPVREpg::QueueDeleteQueries(const std::shared_ptr<CPVREpgDatabase>& database)
 {
   if (!database)
   {
@@ -357,11 +364,16 @@ bool CPVREpg::Delete(const std::shared_ptr<CPVREpgDatabase>& database)
     return false;
   }
 
+  CSingleLock lock(m_critSection);
+
   // delete own epg db entry
-  database->Delete(*this);
+  database->QueueDeleteEpgQuery(*this);
+
+  // delete last scan time db entry for this epg
+  database->QueueDeleteLastEpgScanTimeQuery(*this);
 
   // delete all tags for this epg from db
-  m_tags.Delete();
+  m_tags.QueueDelete();
 
   Clear();
 
@@ -384,7 +396,7 @@ bool CPVREpg::UpdateFromScraper(time_t start, time_t end, bool bForceUpdate)
 {
   if (m_strScraperName.empty())
   {
-    CLog::LogF(LOGERROR, "No EPG scraper defined for table '%s'", m_strName.c_str());
+    CLog::LogF(LOGERROR, "No EPG scraper defined for table '{}'", m_strName);
   }
   else if (m_strScraperName == "client")
   {
@@ -402,8 +414,8 @@ bool CPVREpg::UpdateFromScraper(time_t start, time_t end, bool bForceUpdate)
     {
       if (!client->GetClientCapabilities().SupportsEPG())
       {
-        CLog::LogF(LOGERROR, "The backend for channel '%s' on client '%i' does not support EPGs",
-                   m_channelData->ChannelName().c_str(), m_channelData->ClientId());
+        CLog::LogF(LOGERROR, "The backend for channel '{}' on client '{}' does not support EPGs",
+                   m_channelData->ChannelName(), m_channelData->ClientId());
       }
       else if (!bForceUpdate && client->GetClientCapabilities().SupportsAsyncEPGTransfer())
       {
@@ -412,14 +424,14 @@ bool CPVREpg::UpdateFromScraper(time_t start, time_t end, bool bForceUpdate)
       }
       else
       {
-        CLog::LogFC(LOGDEBUG, LOGEPG, "Updating EPG for channel '%s' from client '%i'",
-                    m_channelData->ChannelName().c_str(), m_channelData->ClientId());
+        CLog::LogFC(LOGDEBUG, LOGEPG, "Updating EPG for channel '{}' from client '{}'",
+                    m_channelData->ChannelName(), m_channelData->ClientId());
         return (client->GetEPGForChannel(m_channelData->UniqueClientChannelId(), this, start, end) == PVR_ERROR_NO_ERROR);
       }
     }
     else
     {
-      CLog::LogF(LOGERROR, "Client '%i' not found, can't update", m_channelData->ClientId());
+      CLog::LogF(LOGERROR, "Client '{}' not found, can't update", m_channelData->ClientId());
     }
   }
   else // other non-empty scraper name...
@@ -479,18 +491,6 @@ const std::string& CPVREpg::ConvertGenreIdToString(int iID, int iSubID)
   return g_localizeStrings.Get(iLabelId);
 }
 
-bool CPVREpg::LoadFromClients(time_t start, time_t end, bool bForceUpdate)
-{
-  bool bReturn = false;
-
-  const std::shared_ptr<CPVREpg> tmpEpg = std::make_shared<CPVREpg>(
-      m_iEpgID, m_strName, m_strScraperName, m_channelData, std::shared_ptr<CPVREpgDatabase>());
-  if (tmpEpg->UpdateFromScraper(start, end, bForceUpdate))
-    bReturn = UpdateEntries(*tmpEpg);
-
-  return bReturn;
-}
-
 std::shared_ptr<CPVREpgChannelData> CPVREpg::GetChannelData() const
 {
   CSingleLock lock(m_critSection);
@@ -530,14 +530,13 @@ int CPVREpg::EpgID() const
 
 bool CPVREpg::UpdatePending() const
 {
-  CSingleLock lock(m_critSection);
   return m_bUpdatePending;
 }
 
 bool CPVREpg::NeedsSave() const
 {
   CSingleLock lock(m_critSection);
-  return m_bChanged || m_tags.NeedsSave();
+  return m_bChanged || m_bUpdateLastScanTime || m_tags.NeedsSave();
 }
 
 bool CPVREpg::IsValid() const
@@ -547,4 +546,9 @@ bool CPVREpg::IsValid() const
     return m_channelData->ClientId() != -1 && m_channelData->UniqueClientChannelId() != PVR_CHANNEL_INVALID_UID;
 
   return true;
+}
+
+void CPVREpg::RemovedFromContainer()
+{
+  m_events.Publish(PVREvent::EpgDeleted);
 }

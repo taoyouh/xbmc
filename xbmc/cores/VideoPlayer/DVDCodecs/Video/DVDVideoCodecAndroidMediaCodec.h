@@ -20,6 +20,7 @@
 #include <atomic>
 #include <deque>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <android/native_window.h>
@@ -90,7 +91,8 @@ private:
 class CMediaCodecVideoBufferPool : public IVideoBufferPool
 {
 public:
-  CMediaCodecVideoBufferPool(std::shared_ptr<CJNIMediaCodec> mediaCodec) : m_codec(mediaCodec){};
+  CMediaCodecVideoBufferPool(std::shared_ptr<CJNIMediaCodec> mediaCodec)
+    : m_codec(std::move(mediaCodec)){};
 
   ~CMediaCodecVideoBufferPool() override;
 
@@ -154,10 +156,8 @@ protected:
   bool m_needSecureDecoder = false;
   int m_codecControlFlags;
   int m_state;
-  int m_noPictureLoop;
 
   std::shared_ptr<CJNIXBMCVideoView> m_jnivideoview;
-  CJNISurface* m_jnisurface;
   CJNISurface m_jnivideosurface;
   unsigned int m_textureId;
   std::shared_ptr<CJNIMediaCodec> m_codec;

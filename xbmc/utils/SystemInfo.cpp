@@ -104,6 +104,27 @@ static bool sysGetVersionExWByRef(OSVERSIONINFOEXW& osVerInfo)
   ZeroMemory(&osVerInfo, sizeof(osVerInfo));
   return false;
 }
+
+static bool appendWindows10NameVersion(std::string& osNameVer)
+{
+  wchar_t versionW[32] = {};
+  DWORD len = sizeof(versionW);
+  bool obtained = false;
+  if (ERROR_SUCCESS == RegGetValueW(HKEY_LOCAL_MACHINE, REG_CURRENT_VERSION, L"DisplayVersion",
+                                    RRF_RT_REG_SZ, nullptr, &versionW, &len))
+  {
+    obtained = true;
+  }
+  else if (ERROR_SUCCESS == RegGetValueW(HKEY_LOCAL_MACHINE, REG_CURRENT_VERSION, L"ReleaseId",
+                                         RRF_RT_REG_SZ, nullptr, &versionW, &len))
+  {
+    obtained = true;
+  }
+  if (obtained)
+    osNameVer.append(StringUtils::Format(" {}", KODI::PLATFORM::WINDOWS::FromW(versionW)));
+
+  return obtained;
+}
 #endif // TARGET_WINDOWS_DESKTOP
 
 #if defined(TARGET_LINUX) && !defined(TARGET_ANDROID)
@@ -508,9 +529,20 @@ std::string CSysInfo::GetKernelVersionFull(void)
     return kernelVersionFull;
 
 #if defined(TARGET_WINDOWS_DESKTOP)
-  OSVERSIONINFOEXW osvi;
+  OSVERSIONINFOEXW osvi = {};
+  DWORD dwBuildRevision = 0;
+  DWORD len = sizeof(DWORD);
+
   if (sysGetVersionExWByRef(osvi))
-    kernelVersionFull = StringUtils::Format("%d.%d.%d", osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);
+    kernelVersionFull = StringUtils::Format("%d.%d.%d", osvi.dwMajorVersion, osvi.dwMinorVersion,
+                                            osvi.dwBuildNumber);
+  // get UBR (updates build revision)
+  if (ERROR_SUCCESS == RegGetValueW(HKEY_LOCAL_MACHINE, REG_CURRENT_VERSION, L"UBR",
+                                    RRF_RT_REG_DWORD, nullptr, &dwBuildRevision, &len))
+  {
+    kernelVersionFull += StringUtils::Format(".%d", dwBuildRevision);
+  }
+
 #elif  defined(TARGET_WINDOWS_STORE)
   // get the system version number
   auto sv = AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
@@ -519,7 +551,10 @@ std::string CSysInfo::GetKernelVersionFull(void)
   unsigned long long v1 = (v & 0xFFFF000000000000L) >> 48;
   unsigned long long v2 = (v & 0x0000FFFF00000000L) >> 32;
   unsigned long long v3 = (v & 0x00000000FFFF0000L) >> 16;
+  unsigned long long v4 = (v & 0x000000000000FFFFL);
   kernelVersionFull = StringUtils::Format("%lld.%lld.%lld", v1, v2, v3);
+  if (v4)
+    kernelVersionFull += StringUtils::Format(".%lld", v4);
 
 #elif defined(TARGET_POSIX)
   struct utsname un;
@@ -652,11 +687,15 @@ std::string CSysInfo::GetOsPrettyNameWithVersion(void)
         osNameVer.append("Server 2012 R2");
       break;
     case WindowsVersionWin10:
-    case WindowsVersionWin10_FCU:
-      if (osvi.wProductType == VER_NT_WORKSTATION)
-        osNameVer.append("10");
-      else
-        osNameVer.append("Unknown future server version");
+    case WindowsVersionWin10_1709:
+    case WindowsVersionWin10_1803:
+    case WindowsVersionWin10_1809:
+    case WindowsVersionWin10_1903:
+    case WindowsVersionWin10_1909:
+    case WindowsVersionWin10_2004:
+    case WindowsVersionWin10_Future:
+      osNameVer.append("10");
+      appendWindows10NameVersion(osNameVer);
       break;
     case WindowsVersionFuture:
       osNameVer.append("Unknown future version");
@@ -818,8 +857,20 @@ CSysInfo::WindowsVersion CSysInfo::GetWindowsVersion()
         m_WinVer = WindowsVersionWin8_1;
       else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber < 16299)
         m_WinVer = WindowsVersionWin10;
-      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber >= 16299)
-        m_WinVer = WindowsVersionWin10_FCU;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 16299)
+        m_WinVer = WindowsVersionWin10_1709;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 17134)
+        m_WinVer = WindowsVersionWin10_1803;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 17763)
+        m_WinVer = WindowsVersionWin10_1809;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 18362)
+        m_WinVer = WindowsVersionWin10_1903;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 18363)
+        m_WinVer = WindowsVersionWin10_1909;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber == 19041)
+        m_WinVer = WindowsVersionWin10_2004;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber > 19041)
+        m_WinVer = WindowsVersionWin10_Future;
       /* Insert checks for new Windows versions here */
       else if ( (osvi.dwMajorVersion == 6 && osvi.dwMinorVersion > 3) || osvi.dwMajorVersion > 10)
         m_WinVer = WindowsVersionFuture;
@@ -1103,7 +1154,7 @@ std::string CSysInfo::GetUserAgent()
   {
     std::string cpuStr(un.machine);
     if (cpuStr == "x86_64" && GetXbmcBitness() == 32)
-      cpuStr = "i686 (x86_64)";
+      cpuStr = "i686 on x86_64";
     result += un.sysname;
     result += " ";
     result += cpuStr;
@@ -1125,9 +1176,7 @@ std::string CSysInfo::GetUserAgent()
     result += " " + linuxOSName + "/" + GetOsVersion();
 #endif
 
-#ifdef TARGET_RASPBERRY_PI
-  result += " HW_RaspberryPi/1.0";
-#elif defined (TARGET_DARWIN_EMBEDDED)
+#if defined(TARGET_DARWIN_IOS)
   std::string iDevVer;
   if (iDevStrDigit == std::string::npos)
     iDevVer = "0.0";
@@ -1185,7 +1234,18 @@ std::string CSysInfo::GetVersionShort()
 
 std::string CSysInfo::GetVersion()
 {
-  return GetVersionShort() + " Git:" + CCompileInfo::GetSCMID();
+  return GetVersionShort() + " (" + CCompileInfo::GetVersionCode() + ")" +
+         " Git:" + CCompileInfo::GetSCMID();
+}
+
+std::string CSysInfo::GetVersionCode()
+{
+  return CCompileInfo::GetVersionCode();
+}
+
+std::string CSysInfo::GetVersionGit()
+{
+  return CCompileInfo::GetSCMID();
 }
 
 std::string CSysInfo::GetBuildDate()

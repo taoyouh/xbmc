@@ -12,6 +12,7 @@
 #include "settings/dialogs/GUIDialogSettingsManualBase.h"
 
 #include <map>
+#include <utility>
 
 namespace VIDEO
 {
@@ -32,7 +33,7 @@ public:
   void ResetContent();
 
   const ADDON::ScraperPtr& GetScraper() const { return m_scraper; }
-  void SetScraper(ADDON::ScraperPtr scraper) { m_scraper = scraper; }
+  void SetScraper(ADDON::ScraperPtr scraper) { m_scraper = std::move(scraper); }
 
   void SetScanSettings(const VIDEO::SScanSettings &scanSettings);
   bool GetScanRecursive() const { return m_scanRecursive; }
@@ -40,6 +41,7 @@ public:
   bool GetContainsSingleItem() const { return m_containsSingleItem; }
   bool GetExclude() const { return m_exclude; }
   bool GetNoUpdating() const { return m_noUpdating; }
+  bool GetUseAllExternalAudio() const { return m_allExternalAudio; }
 
   static bool Show(ADDON::ScraperPtr& scraper, CONTENT_TYPE content = CONTENT_NONE);
   static bool Show(ADDON::ScraperPtr& scraper, VIDEO::SScanSettings& settings, CONTENT_TYPE content = CONTENT_NONE);
@@ -49,12 +51,12 @@ protected:
   void OnInitWindow() override;
 
   // implementations of ISettingCallback
-  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
-  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override;
+  void OnSettingAction(const std::shared_ptr<const CSetting>& setting) override;
 
   // specialization of CGUIDialogSettingsBase
   bool AllowResettingSettings() const override { return false; }
-  void Save() override;
+  bool Save() override;
   void SetupView() override;
 
   // specialization of CGUIDialogSettingsManualBase
@@ -64,7 +66,7 @@ private:
   void SetLabel2(const std::string &settingid, const std::string &label);
   void ToggleState(const std::string &settingid, bool enabled);
   using CGUIDialogSettingsManualBase::SetFocus;
-  void SetFocus(const std::string &settingid);
+  void SetFocusToSetting(const std::string& settingid);
 
   /*!
   * @brief The currently selected content type
@@ -85,4 +87,5 @@ private:
   bool m_containsSingleItem = false;
   bool m_exclude = false;
   bool m_noUpdating = false;
+  bool m_allExternalAudio = false;
 };

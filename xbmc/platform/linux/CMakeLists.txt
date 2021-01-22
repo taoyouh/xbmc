@@ -1,11 +1,13 @@
 set(SOURCES CPUInfoLinux.cpp
             MemUtils.cpp
             OptionalsReg.cpp
+            PlatformLinux.cpp
             SysfsPath.cpp
             TimeUtils.cpp)
 
 set(HEADERS CPUInfoLinux.h
             OptionalsReg.h
+            PlatformLinux.h
             SysfsPath.h
             TimeUtils.h)
 
@@ -21,17 +23,6 @@ if(DBUS_FOUND)
   list(APPEND HEADERS DBusMessage.h
                       DBusReserve.h
                       DBusUtil.h)
-endif()
-
-if(CORE_PLATFORM_NAME_LC STREQUAL rbpi)
-  list(APPEND SOURCES RBP.cpp
-                      OMXCore.cpp
-                      ScreenshotSurfaceRBP.cpp)
-  list(APPEND HEADERS RBP.h
-                      DllBCM.h
-                      DllOMX.h
-                      OMXCore.h
-                      ScreenshotSurfaceRBP.h)
 endif()
 
 core_add_library(linuxsupport)

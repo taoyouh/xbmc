@@ -167,6 +167,7 @@
       <k mod="ctrl,shift">ReloadKeymaps</k>
       <d mod="ctrl,shift">ToggleDebug</d>
       <r mod="ctrl,shift">ToggleDirtyRegionVisualization</r>
+      <f11>HDRToggle</f11>
     </keyboard>
   </global>
   <LoginScreen>
@@ -397,6 +398,7 @@
       <minus mod="ctrl">VolAmpDown</minus>
       <b mod="ctrl">CreateBookmark</b>
       <b mod="alt">CreateEpisodeBookmark</b>
+      <f11 mod="alt">CycleToneMapMethod</f11>
     </keyboard>
   </FullscreenVideo>
   <FullscreenGame>
@@ -440,6 +442,8 @@
       <d mod="ctrl">Back</d>
       <m>OSD</m>
       <menu>OSD</menu>
+      <return mod="longpress">PlayPause</return>
+      <enter mod="longpress">PlayPause</enter>
     </keyboard>
   </FullscreenInfo>
   <PlayerControls>

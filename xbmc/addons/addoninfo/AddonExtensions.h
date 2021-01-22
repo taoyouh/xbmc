@@ -18,6 +18,7 @@ namespace ADDON
 {
 
 class CAddonInfoBuilder;
+class CAddonDatabaseSerializer;
 
 struct SExtValue
 {
@@ -43,7 +44,7 @@ public:
 
   const SExtValue GetValue(const std::string& id) const
   {
-    for (auto value : *this)
+    for (const auto& value : *this)
     {
       if (value.first == id)
         return value.second;
@@ -67,6 +68,7 @@ public:
 
 private:
   friend class CAddonInfoBuilder;
+  friend class CAddonDatabaseSerializer;
 
   std::string m_point;
   EXT_VALUES m_values;

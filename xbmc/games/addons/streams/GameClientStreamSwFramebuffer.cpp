@@ -8,14 +8,16 @@
 
 #include "GameClientStreamSwFramebuffer.h"
 
-#include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/Game.h"
+#include "addons/kodi-dev-kit/include/kodi/addon-instance/Game.h"
 #include "cores/RetroPlayer/streams/RetroPlayerVideo.h"
 #include "games/addons/GameClientTranslator.h"
 
 using namespace KODI;
 using namespace GAME;
 
-bool CGameClientStreamSwFramebuffer::GetBuffer(unsigned int width, unsigned int height, game_stream_buffer &buffer)
+bool CGameClientStreamSwFramebuffer::GetBuffer(unsigned int width,
+                                               unsigned int height,
+                                               game_stream_buffer& buffer)
 {
   if (m_stream != nullptr)
   {

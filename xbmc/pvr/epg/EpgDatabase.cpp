@@ -274,12 +274,12 @@ bool CPVREpgDatabase::DeleteEpg()
   return bReturn;
 }
 
-bool CPVREpgDatabase::Delete(const CPVREpg& table)
+bool CPVREpgDatabase::QueueDeleteEpgQuery(const CPVREpg& table)
 {
   /* invalid channel */
   if (table.EpgID() <= 0)
   {
-    CLog::LogF(LOGERROR, "Invalid channel id: %d", table.EpgID());
+    CLog::LogF(LOGERROR, "Invalid channel id: {}", table.EpgID());
     return false;
   }
 
@@ -287,10 +287,15 @@ bool CPVREpgDatabase::Delete(const CPVREpg& table)
 
   CSingleLock lock(m_critSection);
   filter.AppendWhere(PrepareSQL("idEpg = %u", table.EpgID()));
-  return DeleteValues("epg", filter);
+
+  std::string strQuery;
+  if (BuildSQL(PrepareSQL("DELETE FROM %s ", "epg"), filter, strQuery))
+    return QueueDeleteQuery(strQuery);
+
+  return false;
 }
 
-bool CPVREpgDatabase::Delete(const CPVREpgInfoTag& tag)
+bool CPVREpgDatabase::QueueDeleteTagQuery(const CPVREpgInfoTag& tag)
 {
   /* tag without a database ID was not persisted */
   if (tag.DatabaseID() <= 0)
@@ -300,7 +305,10 @@ bool CPVREpgDatabase::Delete(const CPVREpgInfoTag& tag)
 
   CSingleLock lock(m_critSection);
   filter.AppendWhere(PrepareSQL("idBroadcast = %u", tag.DatabaseID()));
-  return DeleteValues("epgtags", filter);
+
+  std::string strQuery;
+  BuildSQL(PrepareSQL("DELETE FROM %s ", "epgtags"), filter, strQuery);
+  return QueueDeleteQuery(strQuery);
 }
 
 std::vector<std::shared_ptr<CPVREpg>> CPVREpgDatabase::GetAll()
@@ -338,7 +346,7 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::CreateEpgTag(
 {
   if (!pDS->eof())
   {
-    const std::shared_ptr<CPVREpgInfoTag> newTag(new CPVREpgInfoTag());
+    std::shared_ptr<CPVREpgInfoTag> newTag(new CPVREpgInfoTag());
 
     time_t iStartTime;
     iStartTime = static_cast<time_t>(m_pDS->fv("iStartTime").get_asInt());
@@ -380,6 +388,8 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::CreateEpgTag(
 
     newTag->SetGenre(m_pDS->fv("iGenreType").get_asInt(), m_pDS->fv("iGenreSubType").get_asInt(),
                      m_pDS->fv("sGenre").get_asString().c_str());
+    newTag->UpdatePath();
+
     return newTag;
   }
   return {};
@@ -706,14 +716,40 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::GetEpgTagByUniqueBroadcastID(
   {
     try
     {
-      const std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
+      std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
       m_pDS->close();
       return tag;
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "Could not load EPG tag with unique broadcast ID (%u) from the database",
+      CLog::LogF(LOGERROR, "Could not load EPG tag with unique broadcast ID ({}) from the database",
                  iUniqueBroadcastId);
+    }
+  }
+
+  return {};
+}
+
+std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::GetEpgTagByDatabaseID(int iEpgID, int iDatabaseId)
+{
+  CSingleLock lock(m_critSection);
+  const std::string strQuery = PrepareSQL("SELECT * "
+                                          "FROM epgtags "
+                                          "WHERE idEpg = %u AND idBroadcast = %u;",
+                                          iEpgID, iDatabaseId);
+
+  if (ResultQuery(strQuery))
+  {
+    try
+    {
+      std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
+      m_pDS->close();
+      return tag;
+    }
+    catch (...)
+    {
+      CLog::LogF(LOGERROR, "Could not load EPG tag with database ID (%u) from the database",
+                 iDatabaseId);
     }
   }
 
@@ -736,13 +772,13 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::GetEpgTagByStartTime(int iEpgID
   {
     try
     {
-      const std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
+      std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
       m_pDS->close();
       return tag;
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "Could not load EPG tag with start time (%s) from the database",
+      CLog::LogF(LOGERROR, "Could not load EPG tag with start time ({}) from the database",
                  startTime.GetAsDBDateTime());
     }
   }
@@ -760,20 +796,20 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::GetEpgTagByMinStartTime(
   const std::string strQuery =
       PrepareSQL("SELECT * "
                  "FROM epgtags "
-                 "WHERE idEpg = %u AND iStartTime > %u ORDER BY iStartTime ASC LIMIT 1;",
+                 "WHERE idEpg = %u AND iStartTime >= %u ORDER BY iStartTime ASC LIMIT 1;",
                  iEpgID, static_cast<unsigned int>(minStart));
 
   if (ResultQuery(strQuery))
   {
     try
     {
-      const std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
+      std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
       m_pDS->close();
       return tag;
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "Could not load tags with min start time (%u) for EPG (%d)",
+      CLog::LogF(LOGERROR, "Could not load tags with min start time ({}) for EPG ({})",
                  minStartTime.GetAsDBDateTime(), iEpgID);
     }
   }
@@ -798,13 +834,13 @@ std::shared_ptr<CPVREpgInfoTag> CPVREpgDatabase::GetEpgTagByMaxEndTime(int iEpgI
   {
     try
     {
-      const std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
+      std::shared_ptr<CPVREpgInfoTag> tag = CreateEpgTag(m_pDS);
       m_pDS->close();
       return tag;
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "Could not load tags with max end time (%u) for EPG (%d)",
+      CLog::LogF(LOGERROR, "Could not load tags with max end time ({}) for EPG ({})",
                  maxEndTime.GetAsDBDateTime(), iEpgID);
     }
   }
@@ -844,7 +880,7 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetEpgTagsByMinSta
     catch (...)
     {
       CLog::LogF(LOGERROR,
-                 "Could not load tags with min start time (%u) and max end time (%u) for EPG (%d)",
+                 "Could not load tags with min start time ({}) and max end time ({}) for EPG ({})",
                  minStartTime.GetAsDBDateTime(), maxEndTime.GetAsDBDateTime(), iEpgID);
     }
   }
@@ -865,7 +901,7 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetEpgTagsByMinEnd
   const std::string strQuery =
       PrepareSQL("SELECT * "
                  "FROM epgtags "
-                 "WHERE idEpg = %u AND iEndTime > %u AND iStartTime <= %u ORDER BY iStartTime;",
+                 "WHERE idEpg = %u AND iEndTime >= %u AND iStartTime <= %u ORDER BY iStartTime;",
                  iEpgID, static_cast<unsigned int>(minEnd), static_cast<unsigned int>(maxStart));
 
   if (ResultQuery(strQuery))
@@ -884,7 +920,7 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetEpgTagsByMinEnd
     catch (...)
     {
       CLog::LogF(LOGERROR,
-                 "Could not load tags with min end time (%u) and max start time (%u) for EPG (%d)",
+                 "Could not load tags with min end time ({}) and max start time ({}) for EPG ({})",
                  minEndTime.GetAsDBDateTime(), maxStartTime.GetAsDBDateTime(), iEpgID);
     }
   }
@@ -892,9 +928,9 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetEpgTagsByMinEnd
   return {};
 }
 
-bool CPVREpgDatabase::DeleteEpgTagsByMinEndMaxStartTime(int iEpgID,
-                                                        const CDateTime& minEndTime,
-                                                        const CDateTime& maxStartTime)
+bool CPVREpgDatabase::QueueDeleteEpgTagsByMinEndMaxStartTimeQuery(int iEpgID,
+                                                                  const CDateTime& minEndTime,
+                                                                  const CDateTime& maxStartTime)
 {
   time_t minEnd;
   minEndTime.GetAsTime(minEnd);
@@ -905,10 +941,15 @@ bool CPVREpgDatabase::DeleteEpgTagsByMinEndMaxStartTime(int iEpgID,
   Filter filter;
 
   CSingleLock lock(m_critSection);
-  filter.AppendWhere(PrepareSQL("idEpg = %u AND iEndTime > %u AND iStartTime <= %u", iEpgID,
+  filter.AppendWhere(PrepareSQL("idEpg = %u AND iEndTime >= %u AND iStartTime <= %u", iEpgID,
                                 static_cast<unsigned int>(minEnd),
                                 static_cast<unsigned int>(maxStart)));
-  return DeleteValues("epgtags", filter);
+
+  std::string strQuery;
+  if (BuildSQL("DELETE FROM epgtags", filter, strQuery))
+    return QueueDeleteQuery(strQuery);
+
+  return false;
 }
 
 std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetAllEpgTags(int iEpgID)
@@ -931,7 +972,7 @@ std::vector<std::shared_ptr<CPVREpgInfoTag>> CPVREpgDatabase::GetAllEpgTags(int 
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "Could not load tags for EPG (%d)", iEpgID);
+      CLog::LogF(LOGERROR, "Could not load tags for EPG ({})", iEpgID);
     }
   }
   return {};
@@ -958,42 +999,59 @@ bool CPVREpgDatabase::GetLastEpgScanTime(int iEpgId, CDateTime* lastScan)
   return bReturn;
 }
 
-bool CPVREpgDatabase::PersistLastEpgScanTime(int iEpgId,
-                                             const CDateTime& lastScanTime,
-                                             bool bQueueWrite)
+bool CPVREpgDatabase::QueuePersistLastEpgScanTimeQuery(int iEpgId, const CDateTime& lastScanTime)
 {
   CSingleLock lock(m_critSection);
   std::string strQuery = PrepareSQL("REPLACE INTO lastepgscan(idEpg, sLastScan) VALUES (%u, '%s');",
       iEpgId, lastScanTime.GetAsDBDateTime().c_str());
 
-  return bQueueWrite ? QueueInsertQuery(strQuery) : ExecuteQuery(strQuery);
+  return QueueInsertQuery(strQuery);
 }
 
-int CPVREpgDatabase::Persist(int iEpgId,
-                             const std::string& name,
-                             const std::string& scraper,
-                             bool bQueueWrite)
+bool CPVREpgDatabase::QueueDeleteLastEpgScanTimeQuery(const CPVREpg& table)
 {
-  int iReturn(-1);
+  if (table.EpgID() <= 0)
+  {
+    CLog::LogF(LOGERROR, "Invalid EPG id: {}", table.EpgID());
+    return false;
+  }
+
+  Filter filter;
+
+  CSingleLock lock(m_critSection);
+  filter.AppendWhere(PrepareSQL("idEpg = %u", table.EpgID()));
+
+  std::string strQuery;
+  if (BuildSQL(PrepareSQL("DELETE FROM %s ", "lastepgscan"), filter, strQuery))
+    return QueueDeleteQuery(strQuery);
+
+  return false;
+}
+
+int CPVREpgDatabase::Persist(const CPVREpg& epg, bool bQueueWrite)
+{
+  int iReturn = -1;
   std::string strQuery;
 
   CSingleLock lock(m_critSection);
-  if (iEpgId > 0)
+  if (epg.EpgID() > 0)
     strQuery = PrepareSQL("REPLACE INTO epg (idEpg, sName, sScraperName) "
-        "VALUES (%u, '%s', '%s');", iEpgId, name.c_str(), scraper.c_str());
+                          "VALUES (%u, '%s', '%s');",
+                          epg.EpgID(), epg.Name().c_str(), epg.ScraperName().c_str());
   else
     strQuery = PrepareSQL("INSERT INTO epg (sName, sScraperName) "
-        "VALUES ('%s', '%s');", name.c_str(), scraper.c_str());
+                          "VALUES ('%s', '%s');",
+                          epg.Name().c_str(), epg.ScraperName().c_str());
 
   if (bQueueWrite)
   {
     if (QueueInsertQuery(strQuery))
-      iReturn = iEpgId <= 0 ? 0 : iEpgId;
+      iReturn = epg.EpgID() <= 0 ? 0 : epg.EpgID();
   }
   else
   {
     if (ExecuteQuery(strQuery))
-      iReturn = iEpgId <= 0 ? static_cast<int>(m_pDS->lastinsertid()) : iEpgId;
+      iReturn = epg.EpgID() <= 0 ? static_cast<int>(m_pDS->lastinsertid()) : epg.EpgID();
   }
 
   return iReturn;
@@ -1021,14 +1079,24 @@ bool CPVREpgDatabase::DeleteEpgTags(int iEpgId)
   return DeleteValues("epgtags", filter);
 }
 
-int CPVREpgDatabase::Persist(const CPVREpgInfoTag& tag, bool bSingleUpdate /* = true */)
+bool CPVREpgDatabase::QueueDeleteEpgTags(int iEpgId)
 {
-  int iReturn(-1);
+  Filter filter;
 
+  CSingleLock lock(m_critSection);
+  filter.AppendWhere(PrepareSQL("idEpg = %u", iEpgId));
+
+  std::string strQuery;
+  BuildSQL(PrepareSQL("DELETE FROM %s ", "epg"), filter, strQuery);
+  return QueueDeleteQuery(strQuery);
+}
+
+bool CPVREpgDatabase::QueuePersistQuery(const CPVREpgInfoTag& tag)
+{
   if (tag.EpgID() <= 0)
   {
-    CLog::LogF(LOGERROR, "Tag '%s' does not have a valid table", tag.Title().c_str());
-    return iReturn;
+    CLog::LogF(LOGERROR, "Tag '{}' does not have a valid table", tag.Title());
+    return false;
   }
 
   time_t iStartTime, iEndTime;
@@ -1080,18 +1148,8 @@ int CPVREpgDatabase::Persist(const CPVREpgInfoTag& tag, bool bSingleUpdate /* = 
         tag.UniqueBroadcastID(), iBroadcastId);
   }
 
-  if (bSingleUpdate)
-  {
-    if (ExecuteQuery(strQuery))
-      iReturn = static_cast<int>(m_pDS->lastinsertid());
-  }
-  else
-  {
-    QueueInsertQuery(strQuery);
-    iReturn = 0;
-  }
-
-  return iReturn;
+  QueueInsertQuery(strQuery);
+  return true;
 }
 
 int CPVREpgDatabase::GetLastEPGId()

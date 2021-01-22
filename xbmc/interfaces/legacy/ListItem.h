@@ -20,6 +20,7 @@
 #include "commons/Exception.h"
 
 #include <map>
+#include <utility>
 #include <vector>
 
 
@@ -46,25 +47,6 @@ namespace XBMCAddon
     /// @{
     /// @brief **Selectable window list item.**
     ///
-    /// The list item control is used for creating item lists in Kodi
-    ///
-    /// \python_class{ ListItem([label, label2, path]) }
-    ///
-    /// @param label                [opt] string
-    /// @param label2               [opt] string
-    /// @param path                 [opt] string
-    ///
-    ///
-    ///-----------------------------------------------------------------------
-    /// @python_v16 **iconImage** and **thumbnailImage** are deprecated. Use **setArt()**.
-    /// @python_v19 Removed **iconImage** and **thumbnailImage**. Use **setArt()**.
-    ///
-    /// **Example:**
-    /// ~~~~~~~~~~~~~{.py}
-    /// ...
-    /// listitem = xbmcgui.ListItem('Casino Royale')
-    /// ...
-    /// ~~~~~~~~~~~~~
     class ListItem : public AddonClass
     {
     public:
@@ -73,15 +55,55 @@ namespace XBMCAddon
       bool m_offscreen;
 #endif
 
-      ListItem(const String& label = emptyString,
-               const String& label2 = emptyString,
-               const String& path = emptyString,
-               bool offscreen = false);
+#ifdef DOXYGEN_SHOULD_USE_THIS
+    ///
+    /// \ingroup python_xbmcgui_listitem
+    /// @brief Selectable window list item.
+    ///
+    /// The list item control is used for creating item lists in Kodi
+    ///
+    /// \python_class{ ListItem([label, label2, path, offscreen]) }
+    ///
+    /// @param label                [opt] string (default `""`) - the label to display on the item
+    /// @param label2               [opt] string (default `""`) - the label2 of the item
+    /// @param path                 [opt] string (default `""`) - the path for the item
+    /// @param offscreen            [opt] bool (default `False`) - if GUI based locks should be
+    ///                                          avoided. Most of the times listitems are created
+    ///                                          offscreen and added later to a container
+    ///                                          for display (e.g. plugins) or they are not
+    ///                                          even displayed (e.g. python scrapers).
+    ///                                          In such cases, there is no need to lock the
+    ///                                          GUI when creating the items (increasing your addon
+    ///                                          performance).
+    ///                                          Note however, that if you are creating listitems
+    ///                                          and managing the container itself (e.g using
+    ///                                          WindowXML or WindowXMLDialog classes) subsquent
+    ///                                          modifications to the item will require locking.
+    ///                                          Thus, in such cases, use the default value (`False`).
+    ///
+    ///
+    ///-----------------------------------------------------------------------
+    /// @python_v16 **iconImage** and **thumbnailImage** are deprecated. Use **setArt()**.
+    /// @python_v18 Added **offscreen** argument.
+    /// @python_v19 Removed **iconImage** and **thumbnailImage**. Use **setArt()**.
+    ///
+    /// **Example:**
+    /// ~~~~~~~~~~~~~{.py}
+    /// ...
+    /// listitem = xbmcgui.ListItem('Casino Royale')
+    /// ...
+    /// ~~~~~~~~~~~~~
+    ///
+    ListItem([label, label2, path, offscreen]);
+#else
+    ListItem(const String& label = emptyString,
+             const String& label2 = emptyString,
+             const String& path = emptyString,
+             bool offscreen = false);
+#endif
 
 #if !defined SWIG && !defined DOXYGEN_SHOULD_SKIP_THIS
-      inline explicit ListItem(CFileItemPtr pitem) :
-        item(pitem), m_offscreen(false)
-      {}
+      inline explicit ListItem(CFileItemPtr pitem) : item(std::move(pitem)), m_offscreen(false) {}
 
       static inline AddonClass::Ref<ListItem> fromString(const String& str)
       {
@@ -91,13 +113,14 @@ namespace XBMCAddon
       }
 #endif
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
       ~ListItem() override;
+#endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getLabel() }
-      ///-----------------------------------------------------------------------
       /// Returns the listitem label.
       ///
       /// @return                       Label of item
@@ -122,7 +145,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getLabel2() }
-      ///-----------------------------------------------------------------------
       /// Returns the second listitem label.
       ///
       /// @return                       Second label of item
@@ -147,7 +169,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setLabel(label) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's label.
       ///
       /// @param label              string or unicode - text string.
@@ -172,7 +193,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setLabel2(label) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's label2.
       ///
       /// @param label              string or unicode - text string.
@@ -197,7 +217,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setArt(values) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's art
       ///
       /// @param values             dictionary - pairs of `{ label: value }`.
@@ -236,7 +255,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setIsFolder(isFolder) }
-      ///-----------------------------------------------------------------------
       /// Sets if this listitem is a folder.
       ///
       /// @param isFolder            bool - True=folder / False=not a folder (default).
@@ -263,7 +281,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setUniqueIDs(values, defaultrating) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's uniqueID
       ///
       /// @param values             dictionary - pairs of `{ label: value }`.
@@ -298,7 +315,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setRating(type, rating, votes = 0, defaultt = False) }
-      ///-----------------------------------------------------------------------
       /// Sets a listitem's rating. It needs at least type and rating param
       ///
       /// @param type       string - the type of the rating. Any string.
@@ -327,14 +343,13 @@ namespace XBMCAddon
       ///
       setRating(...);
 #else
-      void setRating(std::string type, float rating, int votes = 0, bool defaultt = false);
+      void setRating(const std::string& type, float rating, int votes = 0, bool defaultt = false);
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ addSeason(number, name = "") }
-      ///-----------------------------------------------------------------------
       /// Add a season with name to a listitem. It needs at least the season number
       ///
       /// @param number     int - the number of the season.
@@ -362,7 +377,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getArt(key) }
-      ///-----------------------------------------------------------------------
       /// Returns a listitem art path as a string, similar to an infolabel.\n
       ///
       /// @param key            string - art name.
@@ -398,7 +412,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getUniqueID(key) }
-      ///-----------------------------------------------------------------------
       /// Returns a listitem uniqueID as a string, similar to an infolabel.\n
       ///
       /// @param key            string - uniqueID name.
@@ -430,7 +443,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getRating(key) }
-      ///-----------------------------------------------------------------------
       /// Returns a listitem rating as a float.\n
       ///
       /// @param key            string - rating type.
@@ -462,7 +474,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getVotes(key) }
-      ///-----------------------------------------------------------------------
       /// Returns a listitem votes as a integer.\n
       ///
       /// @param key            string - rating type.
@@ -494,7 +505,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ select(selected) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's selected status.
       ///
       /// @param selected           bool - True=selected/False=not selected
@@ -520,7 +530,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ isSelected() }
-      ///-----------------------------------------------------------------------
       /// Returns the listitem's selected status.
       ///
       ///
@@ -546,7 +555,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setInfo(type, infoLabels) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's infoLabels.
       ///
       /// @param type               string - type of
@@ -699,8 +707,7 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setCast(actors) }
-      ///-----------------------------------------------------------------------
-      /// @brief Set cast including thumbnails
+      /// Set cast including thumbnails
       ///
       /// @param actors            list of dictionaries (see below for relevant keys)
       ///
@@ -733,8 +740,7 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setAvailableFanart(images) }
-      ///-----------------------------------------------------------------------
-      /// @brief Set available images (needed for video scrapers)
+      /// Set available images (needed for video scrapers)
       ///
       /// @param images            list of dictionaries (see below for relevant keys)
       ///
@@ -766,8 +772,7 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ addAvailableArtwork(images) }
-      ///-----------------------------------------------------------------------
-      /// @brief Add an image to available artworks (needed for video scrapers)
+      /// Add an image to available artworks (needed for video scrapers)
       ///
       /// @param url            string (image path url)
       /// @param art_type       string (image type)
@@ -792,15 +797,21 @@ namespace XBMCAddon
       ///
       addAvailableArtwork(...);
 #else
-      void addAvailableArtwork(std::string url, std::string art_type = "", std::string preview = "", std::string referrer = "", std::string cache = "", bool post = false, bool isgz = false, int season = -1);
+      void addAvailableArtwork(const std::string& url,
+                               const std::string& art_type = "",
+                               const std::string& preview = "",
+                               const std::string& referrer = "",
+                               const std::string& cache = "",
+                               bool post = false,
+                               bool isgz = false,
+                               int season = -1);
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ addStreamInfo(type, values) }
-      ///-----------------------------------------------------------------------
-      /// @brief Add a stream with details.
+      /// Add a stream with details.
       ///
       /// @param type              string - type of stream(video/audio/subtitle).
       /// @param values            dictionary - pairs of { label: value }.
@@ -846,7 +857,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ addContextMenuItems([(label, action),*]) }
-      ///-----------------------------------------------------------------------
       /// Adds item(s) to the context menu for media lists.
       ///
       /// @param items               list - [(label, action),*] A list of tuples consisting of label and action pairs.
@@ -863,7 +873,7 @@ namespace XBMCAddon
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
       /// ...
-      /// listitem.addContextMenuItems([('Theater Showtimes', 'RunScript(special://home/scripts/showtimes/default.py,Iron Man)')])
+      /// listitem.addContextMenuItems([('Theater Showtimes', 'RunScript(script.myaddon,title=Iron Man)')])
       /// ...
       /// ~~~~~~~~~~~~~
       ///
@@ -876,7 +886,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setProperty(key, value) }
-      ///-----------------------------------------------------------------------
       /// Sets a listitem property, similar to an infolabel.
       ///
       /// @param key            string - property name.
@@ -890,6 +899,18 @@ namespace XBMCAddon
       /// the offset in seconds at which to start playback of an item.  Others may be used in the skin
       /// to add extra information, such as 'WatchedCount' for tvshow items
       ///
+      /// - **Internal Properties**
+      /// | Key           | Description                                     |
+      /// |--------------:|:------------------------------------------------|
+      /// | inputstream   | string (inputstream.adaptive) - Set the inputstream add-on that will be used to play the item
+      /// | IsPlayable    | string - "true", "false" - Mark the item as playable, **mandatory for playable items**
+      /// | MimeType      | string (application/x-mpegURL) - Set the MimeType of the item before playback
+      /// | ResumeTime    | float (1962.0) - Set the resume point of the item in seconds
+      /// | SpecialSort   | string - "top", "bottom" - The item will remain at the top or bottom of the current list
+      /// | StartOffset   | float (60.0) - Set the offset in seconds at which to start playback of the item
+      /// | StartPercent  | float (15.0) - Set the percentage at which to start playback of the item
+      /// | StationName   | string ("My Station Name") - Used to enforce/override MusicPlayer.StationName infolabel from addons (e.g. in radio addons)
+      /// | TotalTime     | float (7848.0) - Set the total time of the item in seconds
       ///
       ///-----------------------------------------------------------------------
       ///
@@ -910,7 +931,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setProperties(values) }
-      ///-----------------------------------------------------------------------
       /// Sets multiple properties for listitem's
       ///
       /// @param values             dictionary - pairs of `{ label: value }`.
@@ -935,7 +955,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getProperty(key) }
-      ///-----------------------------------------------------------------------
       /// Returns a listitem property as a string, similar to an infolabel.
       ///
       /// @param key            string - property name.
@@ -963,7 +982,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setPath(path) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's path.
       ///
       /// @param path           string or unicode - path, activated when item is clicked.
@@ -989,7 +1007,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setMimeType(mimetype) }
-      ///-----------------------------------------------------------------------
       /// Sets the listitem's mimetype if known.
       ///
       /// @param mimetype           string or unicode - mimetype
@@ -1006,7 +1023,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setContentLookup(enable) }
-      ///-----------------------------------------------------------------------
       /// Enable or disable content lookup for item.
       ///
       /// If disabled, HEAD requests to e.g determine mime type will not be sent.
@@ -1026,7 +1042,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setSubtitles(subtitleFiles) }
-      ///-----------------------------------------------------------------------
       /// Sets subtitles for this listitem.
       ///
       /// @param subtitleFiles list with path to subtitle files
@@ -1040,6 +1055,7 @@ namespace XBMCAddon
       /// listitem.setSubtitles(['special://temp/example.srt', 'http://example.com/example.srt'])
       /// ...
       /// ~~~~~~~~~~~~~
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -1052,7 +1068,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getPath() }
-      ///-----------------------------------------------------------------------
       /// Returns the path of this listitem.
       ///
       /// @return [string] filename
@@ -1071,7 +1086,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getVideoInfoTag() }
-      ///-----------------------------------------------------------------------
       /// Returns the VideoInfoTag for this item.
       ///
       /// @return     video info tag
@@ -1089,7 +1103,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ getMusicInfoTag() }
-      ///-----------------------------------------------------------------------
       /// Returns the MusicInfoTag for this item.
       ///
       /// @return     music info tag

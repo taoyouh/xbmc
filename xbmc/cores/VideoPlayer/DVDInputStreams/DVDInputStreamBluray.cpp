@@ -132,7 +132,7 @@ bool CDVDInputStreamBluray::Open()
   if(m_player == nullptr)
     return false;
 
-  std::string strPath(m_item.GetPath());
+  std::string strPath(m_item.GetDynPath());
   std::string filename;
   std::string root;
 
@@ -156,7 +156,7 @@ bool CDVDInputStreamBluray::Open()
     {
       //get rid of the udf:// protocol
       CURL url2(root);
-      std::string root2 = url2.GetHostName();
+      const std::string& root2 = url2.GetHostName();
       CURL url(root2);
       CFileItem item(url, false);
 
@@ -1018,8 +1018,12 @@ void CDVDInputStreamBluray::GetStreamInfo(int pid, std::string &language)
     find_stream(pid, m_clip->audio_streams, m_clip->audio_stream_count, language);
   else if (HDMV_PID_PG_FIRST <= pid && pid <= HDMV_PID_PG_LAST)
     find_stream(pid, m_clip->pg_streams, m_clip->pg_stream_count, language);
+  else if (HDMV_PID_PG_HDR_FIRST <= pid && pid <= HDMV_PID_PG_HDR_LAST)
+    find_stream(pid, m_clip->pg_streams, m_clip->pg_stream_count, language);
   else if (HDMV_PID_IG_FIRST <= pid && pid <= HDMV_PID_IG_LAST)
     find_stream(pid, m_clip->ig_streams, m_clip->ig_stream_count, language);
+  else
+    CLog::Log(LOGDEBUG, "CDVDInputStreamBluray::GetStreamInfo - unhandled pid %d", pid);
 }
 
 CDVDInputStream::ENextStream CDVDInputStreamBluray::NextStream()

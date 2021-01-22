@@ -17,8 +17,8 @@
 #include "ViewDatabase.h"
 #include "addons/Addon.h"
 #include "addons/AddonManager.h"
-#include "addons/GUIViewStateAddonBrowser.h"
 #include "addons/PluginSource.h"
+#include "addons/gui/GUIViewStateAddonBrowser.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "events/windows/GUIViewStateEventLog.h"
 #include "filesystem/AddonsDirectory.h"
@@ -34,8 +34,10 @@
 #include "pvr/windows/GUIViewStatePVR.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/MediaSourceSettings.h"
+#include "settings/SettingUtils.h"
 #include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
+#include "settings/lib/Setting.h"
 #include "utils/URIUtils.h"
 #include "video/GUIViewStateVideo.h"
 #include "view/ViewState.h"
@@ -509,7 +511,12 @@ bool CGUIViewState::AutoPlayNextVideoItem() const
   else
     settingValue = SETTING_AUTOPLAYNEXT_UNCATEGORIZED;
 
-  return settingValue >= 0 && CServiceBroker::GetSettingsComponent()->GetSettings()->FindIntInList(CSettings::SETTING_VIDEOPLAYER_AUTOPLAYNEXTITEM, settingValue);
+  const auto setting = std::dynamic_pointer_cast<CSettingList>(
+      CServiceBroker::GetSettingsComponent()->GetSettings()->GetSetting(
+          CSettings::SETTING_VIDEOPLAYER_AUTOPLAYNEXTITEM));
+
+  return settingValue >= 0 && setting != nullptr &&
+         CSettingUtils::FindIntInList(setting, settingValue);
 }
 
 void CGUIViewState::LoadViewState(const std::string &path, int windowID)
@@ -546,7 +553,7 @@ void CGUIViewState::SaveViewToDb(const std::string &path, int windowID, CViewSta
     settings->Save();
 }
 
-void CGUIViewState::AddPlaylistOrder(const CFileItemList &items, LABEL_MASKS label_masks)
+void CGUIViewState::AddPlaylistOrder(const CFileItemList& items, const LABEL_MASKS& label_masks)
 {
   SortBy sortBy = SortByPlaylistOrder;
   int sortLabel = 559;
@@ -590,7 +597,8 @@ CGUIViewStateFromItems::CGUIViewStateFromItems(const CFileItemList &items) : CGU
   {
     CURL url(items.GetPath());
     AddonPtr addon;
-    if (CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, ADDON_PLUGIN))
+    if (CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, ADDON_PLUGIN,
+                                               OnlyEnabled::YES))
     {
       PluginPtr plugin = std::static_pointer_cast<CPluginSource>(addon);
       if (plugin->Provides(CPluginSource::AUDIO))

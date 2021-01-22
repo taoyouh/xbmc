@@ -95,6 +95,13 @@ public:
   std::shared_ptr<CPVREpgInfoTag> GetTag(unsigned int iUniqueBroadcastID) const;
 
   /*!
+   * @brief Get an EPG tag given its database ID.
+   * @param iDatabaseID The ID.
+   * @return The tag or nullptr if no tag was found.
+   */
+  std::shared_ptr<CPVREpgInfoTag> GetTagByDatabaseID(int iDatabaseID) const;
+
+  /*!
    * @brief Get the event that occurs between the given begin and end time.
    * @param start The start of the time interval.
    * @param end The end of the time interval.
@@ -116,7 +123,7 @@ public:
   std::shared_ptr<CPVREpgInfoTag> GetNextStartingTag() const;
 
   /*!
-   * @brief Get the event that occured previously
+   * @brief Get the event that occurred previously
    * @return The tag or nullptr if no tag was found.
    */
   std::shared_ptr<CPVREpgInfoTag> GetLastEndedTag() const;
@@ -159,15 +166,14 @@ public:
   bool NeedsSave() const;
 
   /*!
-   * @brief Persist this container in its database.
-   * @param bCommit Whether to commit the data.
+   * @brief Write the query to persist data into database's queue
    */
-  void Persist(bool bCommit);
+  void QueuePersistQuery();
 
   /*!
-   * @brief Delete this container from its database.
+   * @brief Queue the deletion of this container from its database.
    */
-  void Delete();
+  void QueueDelete();
 
 private:
   /*!
@@ -198,6 +204,7 @@ private:
    * @param tags The events to check/fix.
    */
   void FixOverlappingEvents(std::vector<std::shared_ptr<CPVREpgInfoTag>>& tags) const;
+  void FixOverlappingEvents(std::map<CDateTime, std::shared_ptr<CPVREpgInfoTag>>& tags) const;
 
   int m_iEpgID = 0;
   std::shared_ptr<CPVREpgChannelData> m_channelData;

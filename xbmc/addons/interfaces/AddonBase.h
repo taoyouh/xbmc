@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "addons/kodi-addon-dev-kit/include/kodi/AddonBase.h"
+#include "addons/kodi-dev-kit/include/kodi/AddonBase.h"
 
 extern "C"
 {
@@ -25,7 +25,7 @@ class CAddonDll;
  * To hold general functions not related to a instance type and usable for
  * every add-on type.
  *
- * Related add-on header is "./xbmc/addons/kodi-addon-dev-kit/include/kodi/General.h"
+ * Related add-on header is "./xbmc/addons/kodi-dev-kit/include/kodi/General.h"
  */
 struct Interface_Base
 {
@@ -51,9 +51,11 @@ struct Interface_Base
    * class.
    */
   //@{
+  static char* get_type_version(void* kodiBase, int type);
   static char* get_addon_path(void* kodiBase);
   static char* get_base_user_path(void* kodiBase);
   static void addon_log_msg(void* kodiBase, const int addonLogLevel, const char* strMessage);
+  static bool is_setting_using_default(void* kodiBase, const char* id);
   static bool get_setting_bool(void* kodiBase, const char* id, bool* value);
   static bool get_setting_int(void* kodiBase, const char* id, int* value);
   static bool get_setting_float(void* kodiBase, const char* id, float* value);

@@ -45,7 +45,7 @@ typedef struct
   int localizedString;
 } translateField;
 
-//clang format off
+// clang-format off
 static const translateField fields[] = {
   { "none",              FieldNone,                    CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 231 },
   { "filename",          FieldFilename,                CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 561 },
@@ -77,6 +77,8 @@ static const translateField fields[] = {
   { "top250",            FieldTop250,                  CDatabaseQueryRule::NUMERIC_FIELD,  NULL,                                 false, 13409 },
   { "mpaarating",        FieldMPAA,                    CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 20074 },
   { "dateadded",         FieldDateAdded,               CDatabaseQueryRule::DATE_FIELD,     NULL,                                 false, 570 },
+  { "datemodified",      FieldDateModified,            CDatabaseQueryRule::DATE_FIELD,     NULL,                                 false, 39119 },
+  { "datenew",           FieldDateNew,                 CDatabaseQueryRule::DATE_FIELD,     NULL,                                 false, 21877 },
   { "genre",             FieldGenre,                   CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 true,  515 },
   { "plot",              FieldPlot,                    CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 207 },
   { "plotoutline",       FieldPlotOutline,             CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 203 },
@@ -126,8 +128,10 @@ static const translateField fields[] = {
   { "samplerate",        FieldSampleRate,              CDatabaseQueryRule::NUMERIC_FIELD,  NULL,                                 false, 613 },
   { "bitrate",           FieldMusicBitRate,            CDatabaseQueryRule::NUMERIC_FIELD,  NULL,                                 false, 623 },
   { "channels",          FieldNoOfChannels,            CDatabaseQueryRule::NUMERIC_FIELD,  StringValidation::IsPositiveInteger,  false, 253 },
+  { "albumstatus",       FieldAlbumStatus,             CDatabaseQueryRule::TEXT_FIELD,     NULL,                                 false, 38081 },
+  { "albumduration",     FieldAlbumDuration,           CDatabaseQueryRule::SECONDS_FIELD,  StringValidation::IsTime,             false, 180 },
 };
-// clang format on
+// clang-format on
 
 typedef struct
 {
@@ -137,7 +141,7 @@ typedef struct
   int localizedString;
 } group;
 
-//clang format off
+// clang-format off
 static const group groups[] = { { "",               FieldUnknown,   false,    571 },
                                 { "none",           FieldNone,      false,    231 },
                                 { "sets",           FieldSet,       true,   20434 },
@@ -153,7 +157,7 @@ static const group groups[] = { { "",               FieldUnknown,   false,    57
                                 { "tags",           FieldTag,       false,  20459 },
                                 { "originalyears",  FieldOrigYear,  false,  38078 },
                               };
-// clang format on
+// clang-format on
 
 #define RULE_VALUE_SEPARATOR  " / "
 
@@ -329,6 +333,9 @@ std::vector<Field> CSmartPlaylistRule::GetFields(const std::string &type)
     fields.push_back(FieldSampleRate);
     fields.push_back(FieldMusicBitRate);
     fields.push_back(FieldNoOfChannels);
+    fields.push_back(FieldDateAdded);
+    fields.push_back(FieldDateModified);
+    fields.push_back(FieldDateNew);
   }
   else if (type == "albums")
   {
@@ -344,6 +351,7 @@ std::vector<Field> CSmartPlaylistRule::GetFields(const std::string &type)
     if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
         CSettings::SETTING_MUSICLIBRARY_USEORIGINALDATE))
       fields.push_back(FieldOrigYear);
+    fields.push_back(FieldAlbumDuration);
     fields.push_back(FieldReview);
     fields.push_back(FieldThemes);
     fields.push_back(FieldMoods);
@@ -356,6 +364,10 @@ std::vector<Field> CSmartPlaylistRule::GetFields(const std::string &type)
     fields.push_back(FieldPlaycount);
     fields.push_back(FieldLastPlayed);
     fields.push_back(FieldPath);
+    fields.push_back(FieldAlbumStatus);
+    fields.push_back(FieldDateAdded);
+    fields.push_back(FieldDateModified);
+    fields.push_back(FieldDateNew);
   }
   else if (type == "artists")
   {
@@ -375,6 +387,9 @@ std::vector<Field> CSmartPlaylistRule::GetFields(const std::string &type)
     fields.push_back(FieldDied);
     fields.push_back(FieldRole);
     fields.push_back(FieldPath);
+    fields.push_back(FieldDateAdded);
+    fields.push_back(FieldDateModified);
+    fields.push_back(FieldDateNew);
   }
   else if (type == "tvshows")
   {
@@ -807,7 +822,7 @@ CDatabaseQueryRule::SEARCH_OPERATOR CSmartPlaylistRule::GetOperator(const std::s
 std::string CSmartPlaylistRule::FormatParameter(const std::string &operatorString, const std::string &param, const CDatabase &db, const std::string &strType) const
 {
   // special-casing
-  if (m_field == FieldTime)
+  if (m_field == FieldTime || m_field == FieldAlbumDuration)
   { // translate time to seconds
     std::string seconds = StringUtils::Format("%li", StringUtils::TimeStringToSeconds(param));
     return db.PrepareSQL(operatorString.c_str(), seconds.c_str());

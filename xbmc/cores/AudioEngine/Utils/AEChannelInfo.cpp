@@ -28,8 +28,6 @@ CAEChannelInfo::CAEChannelInfo(const AEStdChLayout rhs)
   *this = rhs;
 }
 
-CAEChannelInfo::~CAEChannelInfo() = default;
-
 void CAEChannelInfo::ResolveChannels(const CAEChannelInfo& rhs)
 {
   /* mono gets upmixed to dual mono */
@@ -180,7 +178,7 @@ CAEChannelInfo& CAEChannelInfo::operator=(const enum AEStdChLayout rhs)
 
 bool CAEChannelInfo::operator==(const CAEChannelInfo& rhs) const
 {
-  /* if the channel count doesnt match, no need to check further */
+  /* if the channel count doesn't match, no need to check further */
   if (m_channelCount != rhs.m_channelCount)
     return false;
 

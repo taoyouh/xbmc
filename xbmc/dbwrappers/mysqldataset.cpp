@@ -6,17 +6,18 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include <iostream>
-#include <string>
-#include <set>
-#include <algorithm>
-
-#include "utils/log.h"
-#include "network/WakeOnAccess.h"
-#include "Util.h"
-#include "utils/StringUtils.h"
-
 #include "mysqldataset.h"
+
+#include "Util.h"
+#include "network/DNSNameCache.h"
+#include "network/WakeOnAccess.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+
+#include <algorithm>
+#include <iostream>
+#include <set>
+#include <string>
 #ifdef HAS_MYSQL
 #include <mysql/errmsg.h>
 #elif defined(HAS_MARIADB)
@@ -145,7 +146,13 @@ int MysqlDatabase::connect(bool create_new) {
   if (host.empty() || db.empty())
     return DB_CONNECTION_NONE;
 
-  //CLog::Log(LOGDEBUG, "Connecting to mysql:%s:%s", host.c_str(), db.c_str());
+  std::string resolvedHost;
+  if (CDNSNameCache::Lookup(host, resolvedHost))
+  {
+    CLog::Log(LOGDEBUG, "{} replacing configured host {} with resolved host {}", __FUNCTION__, host,
+              resolvedHost);
+    host = resolvedHost;
+  }
 
   try
   {
@@ -218,7 +225,8 @@ int MysqlDatabase::connect(bool create_new) {
         char sqlcmd[512];
         int ret;
 
-        sprintf(sqlcmd, "CREATE DATABASE `%s` CHARACTER SET utf8 COLLATE utf8_general_ci", db.c_str());
+        snprintf(sqlcmd, sizeof(sqlcmd),
+                 "CREATE DATABASE `%s` CHARACTER SET utf8 COLLATE utf8_general_ci", db.c_str());
         if ( (ret=query_with_reconnect(sqlcmd)) != MYSQL_OK )
         {
           throw DbErrors("Can't create new database: '%s' (%d)", db.c_str(), ret);
@@ -276,7 +284,7 @@ int MysqlDatabase::drop() {
     throw DbErrors("Can't drop database: no active connection...");
   char sqlcmd[512];
   int ret;
-  sprintf(sqlcmd,"DROP DATABASE `%s`", db.c_str());
+  snprintf(sqlcmd, sizeof(sqlcmd), "DROP DATABASE `%s`", db.c_str());
   if ( (ret=query_with_reconnect(sqlcmd)) != MYSQL_OK )
   {
     throw DbErrors("Can't drop database: '%s' (%d)", db.c_str(), ret);
@@ -313,7 +321,8 @@ int MysqlDatabase::copy(const char *backup_name) {
     }
 
     // create the new database
-    sprintf(sql, "CREATE DATABASE `%s` CHARACTER SET utf8 COLLATE utf8_general_ci", backup_name);
+    snprintf(sql, sizeof(sql), "CREATE DATABASE `%s` CHARACTER SET utf8 COLLATE utf8_general_ci",
+             backup_name);
     if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
     {
       mysql_free_result(res);
@@ -326,8 +335,7 @@ int MysqlDatabase::copy(const char *backup_name) {
     while ( (row=mysql_fetch_row(res)) != NULL )
     {
       // copy the table definition
-      sprintf(sql, "CREATE TABLE `%s`.%s LIKE %s",
-              backup_name, row[0], row[0]);
+      snprintf(sql, sizeof(sql), "CREATE TABLE `%s`.%s LIKE %s", backup_name, row[0], row[0]);
 
       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
       {
@@ -336,7 +344,7 @@ int MysqlDatabase::copy(const char *backup_name) {
       }
 
       // copy the table data
-      sprintf(sql, "INSERT INTO `%s`.%s SELECT * FROM %s",
+      snprintf(sql, sizeof(sql), "INSERT INTO `%s`.%s SELECT * FROM %s",
               backup_name, row[0], row[0]);
 
       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
@@ -366,10 +374,10 @@ int MysqlDatabase::drop_analytics(void) {
     throw DbErrors("Can't connect to database: '%s'",db.c_str());
 
   // getting a list of indexes in the database
-  sprintf(sql, "SELECT DISTINCT table_name, index_name"
-          "  FROM information_schema.statistics"
-          " WHERE index_name != 'PRIMARY' AND"
-          "       table_schema = '%s'", db.c_str());
+  snprintf(sql, sizeof(sql), "SELECT DISTINCT table_name, index_name "
+           "FROM information_schema.statistics "
+           "WHERE index_name != 'PRIMARY' AND table_schema = '%s'",
+           db.c_str());
   if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
     throw DbErrors("Can't determine list of indexes to drop.");
 
@@ -381,7 +389,7 @@ int MysqlDatabase::drop_analytics(void) {
   {
     while ( (row=mysql_fetch_row(res)) != NULL )
     {
-      sprintf(sql, "ALTER TABLE `%s`.%s DROP INDEX %s", db.c_str(), row[0], row[1]);
+      snprintf(sql, sizeof(sql), "ALTER TABLE `%s`.%s DROP INDEX %s", db.c_str(), row[0], row[1]);
 
       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
       {
@@ -393,9 +401,8 @@ int MysqlDatabase::drop_analytics(void) {
   }
 
   // next topic is a views list
-  sprintf(sql, "SELECT table_name"
-          "  FROM information_schema.views"
-          " WHERE table_schema = '%s'", db.c_str());
+  snprintf(sql, sizeof(sql),
+           "SELECT table_name FROM information_schema.views WHERE table_schema = '%s'", db.c_str());
   if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
     throw DbErrors("Can't determine list of views to drop.");
 
@@ -406,7 +413,7 @@ int MysqlDatabase::drop_analytics(void) {
     while ( (row=mysql_fetch_row(res)) != NULL )
     {
       /* we do not need IF EXISTS because these views are exist */
-      sprintf(sql, "DROP VIEW `%s`.%s", db.c_str(), row[0]);
+      snprintf(sql, sizeof(sql), "DROP VIEW `%s`.%s", db.c_str(), row[0]);
 
       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
       {
@@ -418,9 +425,9 @@ int MysqlDatabase::drop_analytics(void) {
   }
 
   // triggers
-  sprintf(sql, "SELECT trigger_name"
-          "  FROM information_schema.triggers"
-          " WHERE event_object_schema = '%s'", db.c_str());
+  snprintf(sql, sizeof(sql),
+           "SELECT trigger_name FROM information_schema.triggers WHERE event_object_schema = '%s'",
+           db.c_str());
   if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
     throw DbErrors("Can't determine list of triggers to drop.");
 
@@ -430,12 +437,36 @@ int MysqlDatabase::drop_analytics(void) {
   {
     while ( (row=mysql_fetch_row(res)) != NULL )
     {
-      sprintf(sql, "DROP TRIGGER `%s`.%s", db.c_str(), row[0]);
+      snprintf(sql, sizeof(sql), "DROP TRIGGER `%s`.%s", db.c_str(), row[0]);
 
       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
       {
         mysql_free_result(res);
-        throw DbErrors("Can't create trigger '%s'\nError: %d", row[0], ret);
+        throw DbErrors("Can't drop trigger '%s'\nError: %d", row[0], ret);
+      }
+    }
+    mysql_free_result(res);
+  }
+
+  // Native functions
+  snprintf(sql, sizeof(sql), "SELECT routine_name FROM information_schema.routines "
+          "WHERE routine_type = 'FUNCTION' and routine_schema = '%s'",
+          db.c_str());
+  if ((ret = query_with_reconnect(sql)) != MYSQL_OK)
+    throw DbErrors("Can't determine list of routines to drop.");
+
+  res = mysql_store_result(conn);
+
+  if (res)
+  {
+    while ((row = mysql_fetch_row(res)) != NULL)
+    {
+      snprintf(sql, sizeof(sql), "DROP FUNCTION `%s`.%s", db.c_str(), row[0]);
+
+      if ((ret = query_with_reconnect(sql)) != MYSQL_OK)
+      {
+        mysql_free_result(res);
+        throw DbErrors("Can't drop function '%s'\nError: %d", row[0], ret);
       }
     }
     mysql_free_result(res);
@@ -468,7 +499,7 @@ long MysqlDatabase::nextid(const char* sname) {
   int id;/*,nrow,ncol;*/
   MYSQL_RES* res;
   char sqlcmd[512];
-  sprintf(sqlcmd,"select nextid from %s where seq_name = '%s'",seq_table, sname);
+  snprintf(sqlcmd, sizeof(sqlcmd), "SELECT nextid FROM %s WHERE seq_name = '%s'", seq_table, sname);
   CLog::Log(LOGDEBUG,"MysqlDatabase::nextid will request");
   if ((last_err = query_with_reconnect(sqlcmd)) != 0)
   {
@@ -480,7 +511,8 @@ long MysqlDatabase::nextid(const char* sname) {
     if (mysql_num_rows(res) == 0)
     {
       id = 1;
-      sprintf(sqlcmd, "insert into %s (nextid,seq_name) values (%d,'%s')", seq_table, id, sname);
+      snprintf(sqlcmd, sizeof(sqlcmd), "INSERT INTO %s (nextid,seq_name) VALUES (%d,'%s')",
+               seq_table, id, sname);
       mysql_free_result(res);
       if ((last_err = query_with_reconnect(sqlcmd)) != 0) return DB_UNEXPECTED_RESULT;
       return id;
@@ -493,7 +525,8 @@ long MysqlDatabase::nextid(const char* sname) {
       unsigned long *lengths;
       lengths = mysql_fetch_lengths(res);
       CLog::Log(LOGINFO, "Next id is [%.*s] ", (int)lengths[0], row[0]);
-      sprintf(sqlcmd, "update %s set nextid=%d where seq_name = '%s'", seq_table, id, sname);
+      snprintf(sqlcmd, sizeof(sqlcmd), "UPDATE %s SET nextid=%d WHERE seq_name = '%s'", 
+               seq_table, id, sname);
       mysql_free_result(res);
       if ((last_err = query_with_reconnect(sqlcmd)) != 0) return DB_UNEXPECTED_RESULT;
       return id;
@@ -610,6 +643,11 @@ std::string MysqlDatabase::vprepare(const char *format, va_list args)
   // In MySQL all tables are defined with case insensitive collation utf8_general_ci
   pos = 0;
   while ((pos = strResult.find(" COLLATE NOCASE", pos)) != std::string::npos)
+    strResult.erase(pos++, 15);
+
+  // Remove COLLATE ALPHANUM the SQLite custom collation.
+  pos = 0;
+  while ((pos = strResult.find(" COLLATE ALPHANUM", pos)) != std::string::npos)
     strResult.erase(pos++, 15);
 
   return strResult;

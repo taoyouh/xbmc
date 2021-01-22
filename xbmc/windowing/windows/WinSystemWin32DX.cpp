@@ -17,8 +17,10 @@
 #include "utils/XTimeUtils.h"
 #include "utils/log.h"
 #include "windowing/GraphicContext.h"
+#include "windowing/WindowSystemFactory.h"
 
 #include "platform/win32/CharsetConverter.h"
+#include "platform/win32/WIN32Util.h"
 
 #include "system.h"
 
@@ -49,10 +51,14 @@ static PFND3D10DDI_OPENADAPTER s_fnOpenAdapter10_2{ nullptr };
 static PFND3D10DDI_CREATEDEVICE s_fnCreateDeviceOrig{ nullptr };
 static PFND3D10DDI_CREATERESOURCE s_fnCreateResourceOrig{ nullptr };
 
-std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+void CWinSystemWin32DX::Register()
 {
-  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemWin32DX());
-  return winSystem;
+  KODI::WINDOWING::CWindowSystemFactory::RegisterWindowSystem(CreateWinSystem);
+}
+
+std::unique_ptr<CWinSystemBase> CWinSystemWin32DX::CreateWinSystem()
+{
+  return std::make_unique<CWinSystemWin32DX>();
 }
 
 CWinSystemWin32DX::CWinSystemWin32DX() : CRenderSystemDX()
@@ -143,7 +149,7 @@ void CWinSystemWin32DX::OnMove(int x, int y)
 bool CWinSystemWin32DX::DPIChanged(WORD dpi, RECT windowRect) const
 {
   // on Win10 FCU the OS keeps window size exactly the same size as it was
-  if (CSysInfo::IsWindowsVersionAtLeast(CSysInfo::WindowsVersionWin10_FCU))
+  if (CSysInfo::IsWindowsVersionAtLeast(CSysInfo::WindowsVersionWin10_1709))
     return true;
 
   m_deviceResources->SetDpi(dpi);
@@ -379,4 +385,39 @@ HRESULT APIENTRY HookOpenAdapter10_2(D3D10DDIARG_OPENADAPTER *pOpenData)
     pOpenData->pAdapterFuncs->pfnCreateDevice = HookCreateDevice;
   }
   return hr;
+}
+
+bool CWinSystemWin32DX::IsHDRDisplay()
+{
+  return (CWIN32Util::GetWindowsHDRStatus() != HDR_STATUS::HDR_UNSUPPORTED);
+}
+
+HDR_STATUS CWinSystemWin32DX::GetOSHDRStatus()
+{
+  return CWIN32Util::GetWindowsHDRStatus();
+}
+
+HDR_STATUS CWinSystemWin32DX::ToggleHDR()
+{
+  return m_deviceResources->ToggleHDR();
+}
+
+bool CWinSystemWin32DX::IsHDROutput() const
+{
+  return m_deviceResources->IsHDROutput();
+}
+
+bool CWinSystemWin32DX::IsTransferPQ() const
+{
+  return m_deviceResources->IsTransferPQ();
+}
+
+void CWinSystemWin32DX::SetHdrMetaData(DXGI_HDR_METADATA_HDR10& hdr10) const
+{
+  m_deviceResources->SetHdrMetaData(hdr10);
+}
+
+void CWinSystemWin32DX::SetHdrColorSpace(const DXGI_COLOR_SPACE_TYPE colorSpace) const
+{
+  m_deviceResources->SetHdrColorSpace(colorSpace);
 }

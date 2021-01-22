@@ -1,15 +1,11 @@
-set(SOURCES General.cpp
+set(SOURCES GUITranslator.cpp
+            General.cpp
             ListItem.cpp
-            Window.cpp
-            AddonCallbacksGUI.cpp
-            AddonGUIRenderingControl.cpp
-            AddonGUIWindow.cpp)
+            Window.cpp)
 
-set(HEADERS General.h
+set(HEADERS GUITranslator.h
+            General.h
             ListItem.h
-            Window.h
-            AddonCallbacksGUI.h
-            AddonGUIRenderingControl.h
-            AddonGUIWindow.h)
+            Window.h)
 
 core_add_library(addons_interfaces_gui)

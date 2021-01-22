@@ -23,7 +23,7 @@ namespace ADDON
  * To hold general functions not related to a instance type and usable for
  * every add-on type.
  *
- * Related add-on header is "./xbmc/addons/kodi-addon-dev-kit/include/kodi/General.h"
+ * Related add-on header is "./xbmc/addons/kodi-dev-kit/include/kodi/General.h"
  */
 struct Interface_General
 {
@@ -59,6 +59,7 @@ struct Interface_General
   static char* get_region(void* kodiBase, const char* id);
   static void get_free_mem(void* kodiInstance, long* free, long* total, bool as_bytes);
   static int get_global_idle_time(void* kodiBase);
+  static bool is_addon_avilable(void* kodiBase, const char* id, char** version, bool* enabled);
   static void kodi_version(void* kodiBase,
                            char** compile_name,
                            int* major,

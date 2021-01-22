@@ -9,13 +9,14 @@
 #pragma once
 
 #include "XBDateTime.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "addons/kodi-dev-kit/include/kodi/c-api/addon-instance/pvr/pvr_epg.h"
 #include "pvr/settings/PVRSettings.h"
 #include "threads/CriticalSection.h"
 #include "threads/Event.h"
 #include "threads/Thread.h"
 #include "utils/EventStream.h"
 
+#include <atomic>
 #include <list>
 #include <map>
 #include <memory>
@@ -64,19 +65,24 @@ namespace PVR
 
     /*!
      * @brief Start the EPG update thread.
-     * @param bAsync Should the EPG container starts asynchronously
      */
-    void Start(bool bAsync);
+    void Start();
 
     /*!
      * @brief Stop the EPG update thread.
      */
     void Stop();
 
-    /*!
-     * @brief Clear all EPG entries.
+    /**
+     * @brief (re)load EPG data.
+     * @return True if loaded successfully, false otherwise.
      */
-    void Clear();
+    bool Load();
+
+    /**
+     * @brief unload all EPG data.
+     */
+    void Unload();
 
     /*!
      * @brief Check whether the EpgContainer has fully started.
@@ -85,11 +91,11 @@ namespace PVR
     bool IsStarted() const;
 
     /*!
-     * @brief Delete an EPG table from this container.
-     * @param epg The table to delete.
+     * @brief Queue the deletion of the given EPG tables from this container.
+     * @param epg The tables to delete.
      * @return True on success, false otherwise.
      */
-    bool DeleteEpg(const std::shared_ptr<CPVREpg>& epg);
+    bool QueueDeleteEpgs(const std::vector<std::shared_ptr<CPVREpg>>& epgs);
 
     /*!
      * @brief CEventStream callback for PVR events.
@@ -148,6 +154,13 @@ namespace PVR
     std::shared_ptr<CPVREpgInfoTag> GetTagById(const std::shared_ptr<CPVREpg>& epg, unsigned int iBroadcastId) const;
 
     /*!
+     * @brief Get the EPG event with the given database id
+     * @param iDatabaseId The id to lookup.
+     * @return The requested event, or an empty tag when not found
+     */
+    std::shared_ptr<CPVREpgInfoTag> GetTagByDatabaseId(int iDatabaseId) const;
+
+    /*!
      * @brief Get all EPG tags matching the given search criteria.
      * @param searchData The search criteria.
      * @return The matching tags.
@@ -195,6 +208,16 @@ namespace PVR
      * @brief Inform the epg container that playback of an item was stopped due to user interaction.
      */
     void OnPlaybackStopped();
+
+    /*!
+     * @brief Inform the epg container that the system is going to sleep
+     */
+    void OnSystemSleep();
+
+    /*!
+     * @brief Inform the epg container that the system gets awake from sleep
+     */
+    void OnSystemWake();
 
   private:
     /*!
@@ -257,10 +280,18 @@ namespace PVR
      */
     void InsertFromDB(const std::shared_ptr<CPVREpg>& newEpg);
 
+    /*!
+     * @brief Queue the deletion of an EPG table from this container.
+     * @param epg The table to delete.
+     * @return True on success, false otherwise.
+     */
+    bool QueueDeleteEpg(const std::shared_ptr<CPVREpg>& epg);
+
     std::shared_ptr<CPVREpgDatabase> m_database; /*!< the EPG database */
 
     bool m_bIsUpdating = false; /*!< true while an update is running */
-    bool m_bIsInitialising = true; /*!< true while the epg manager hasn't loaded all tables */
+    std::atomic<bool> m_bIsInitialising = {
+        true}; /*!< true while the epg manager hasn't loaded all tables */
     bool m_bStarted = false; /*!< true if EpgContainer has fully started */
     bool m_bLoaded = false; /*!< true after epg data is initially loaded from the database */
     bool m_bPreventUpdates = false; /*!< true to prevent EPG updates */
@@ -286,5 +317,7 @@ namespace PVR
     bool m_bUpdateNotificationPending = false; /*!< true while an epg updated notification to observers is pending. */
     CPVRSettings m_settings;
     CEventSource<PVREvent> m_events;
+
+    std::atomic<bool> m_bSuspended = {false};
   };
 }

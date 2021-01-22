@@ -26,9 +26,8 @@
 #define RUNSCRIPT_PREAMBLE \
   "" \
   "import " MODULE "\n" \
-  "xbmc.abortRequested = False\n" \
   "class xbmcout:\n" \
-  "  def __init__(self, loglevel=" MODULE ".LOGNOTICE):\n" \
+  "  def __init__(self, loglevel=" MODULE ".LOGINFO):\n" \
   "    self.ll=loglevel\n" \
   "  def write(self, data):\n" \
   "    " MODULE ".log(data,self.ll)\n" \
@@ -55,7 +54,7 @@
   ""
 
 #define RUNSCRIPT_POSTSCRIPT \
-        MODULE ".log('-->HTTP Python WSGI Interpreter Initialized<--', " MODULE ".LOGNOTICE)\n" \
+        MODULE ".log('-->HTTP Python WSGI Interpreter Initialized<--', " MODULE ".LOGINFO)\n" \
         ""
 
 #if defined(TARGET_ANDROID)
@@ -319,7 +318,8 @@ const char* CHTTPPythonWsgiInvoker::getInitializationScript() const
   return RUNSCRIPT;
 }
 
-std::map<std::string, std::string> CHTTPPythonWsgiInvoker::createCgiEnvironment(const HTTPPythonRequest* httpRequest, ADDON::AddonPtr addon)
+std::map<std::string, std::string> CHTTPPythonWsgiInvoker::createCgiEnvironment(
+    const HTTPPythonRequest* httpRequest, const ADDON::AddonPtr& addon)
 {
   std::map<std::string, std::string> environment;
 

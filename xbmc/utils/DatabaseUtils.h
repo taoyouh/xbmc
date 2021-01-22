@@ -82,6 +82,8 @@ typedef enum {
   FieldComment,
   FieldRole,
   FieldDateAdded,
+  FieldDateModified,
+  FieldDateNew,
   FieldTvShowTitle,
   FieldPlot,
   FieldPlotOutline,
@@ -141,6 +143,8 @@ typedef enum {
   FieldMusicBitRate,
   FieldSampleRate,
   FieldNoOfChannels,
+  FieldAlbumStatus,
+  FieldAlbumDuration,
   FieldMax
 } Field;
 

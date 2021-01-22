@@ -200,7 +200,7 @@ bool CTagLoaderTagLib::ParseTag(ASF::Tag *asf, EmbeddedArt *art, CMusicInfoTag& 
     else if (it->first == "MusicBrainz/Track Id")
       tag.SetMusicBrainzTrackID(it->second.front().toString().to8Bit(true));
     else if (it->first == "MusicBrainz/Album Status")
-    {}
+      tag.SetAlbumReleaseStatus(it->second.front().toString().toCString(true));
     else if (it->first == "MusicBrainz/Album Type")
       SetReleaseType(tag, GetASFStringList(it->second));
     else if (it->first == "MusicIP/PUID")
@@ -298,8 +298,12 @@ bool CTagLoaderTagLib::ParseTag(ID3v2::Tag *id3v2, EmbeddedArt *art, MUSIC_INFO:
     else if (it->first == "TSOC")   SetComposerSort(tag, GetID3v2StringList(it->second));
     else if (it->first == "TIT2")   tag.SetTitle(it->second.front()->toString().to8Bit(true));
     else if (it->first == "TCON")   SetGenre(tag, GetID3v2StringList(it->second));
-    else if (it->first == "TRCK")   tag.SetTrackNumber(strtol(it->second.front()->toString().toCString(true), nullptr, 10));
-    else if (it->first == "TPOS")   tag.SetDiscNumber(strtol(it->second.front()->toString().toCString(true), nullptr, 10));
+    else if (it->first == "TRCK")
+      tag.SetTrackNumber(
+          static_cast<int>(strtol(it->second.front()->toString().toCString(true), nullptr, 10)));
+    else if (it->first == "TPOS")
+      tag.SetDiscNumber(
+          static_cast<int>(strtol(it->second.front()->toString().toCString(true), nullptr, 10)));
     else if (it->first == "TDOR" || it->first == "TORY") // TDOR - ID3v2.4, TORY - ID3v2.3
       tag.SetOriginalDate(it->second.front()->toString().to8Bit(true));
     else if (it->first == "TDAT")   {} // empty as taglib has moved the value to TDRC
@@ -320,7 +324,8 @@ bool CTagLoaderTagLib::ParseTag(ID3v2::Tag *id3v2, EmbeddedArt *art, MUSIC_INFO:
     else if (it->first == "TSST")
       tag.SetDiscSubtitle(it->second.front()->toString().to8Bit(true));
     else if (it->first == "TBPM")
-      tag.SetBPM(strtol(it->second.front()->toString().toCString(true), nullptr, 10));
+      tag.SetBPM(
+          static_cast<int>(strtol(it->second.front()->toString().toCString(true), nullptr, 10)));
     else if (it->first == "USLT")
       // Loop through any lyrics frames. Could there be multiple frames, how to choose?
       for (ID3v2::FrameList::ConstIterator lt = it->second.begin(); lt != it->second.end(); ++lt)
@@ -361,6 +366,8 @@ bool CTagLoaderTagLib::ParseTag(ID3v2::Tag *id3v2, EmbeddedArt *art, MUSIC_INFO:
           SetAlbumArtist(tag, StringListToVectorString(stringList));
         else if (desc == "MUSICBRAINZ ALBUM TYPE")
           SetReleaseType(tag, StringListToVectorString(stringList));
+        else if (desc == "MUSICBRAINZ ALBUM STATUS")
+          tag.SetAlbumReleaseStatus(stringList.front().to8Bit(true));
         else if (desc == "REPLAYGAIN_TRACK_GAIN")
           replayGainInfo.ParseGain(ReplayGain::TRACK, stringList.front().toCString(true));
         else if (desc == "REPLAYGAIN_ALBUM_GAIN")
@@ -584,6 +591,8 @@ bool CTagLoaderTagLib::ParseTag(APE::Tag *ape, EmbeddedArt *art, CMusicInfoTag& 
       SetReleaseType(tag, StringListToVectorString(it->second.toStringList()));
     else if (it->first == "BPM")
       tag.SetBPM(it->second.toString().toInt());
+    else if (it->first == "MUSICBRAINZ_ALBUMSTATUS")
+      tag.SetAlbumReleaseStatus(it->second.toString().to8Bit(true));
     else if (it->first == "COVER ART (FRONT)")
     {
       TagLib::ByteVector tdata = it->second.binaryData();
@@ -724,6 +733,8 @@ bool CTagLoaderTagLib::ParseTag(Ogg::XiphComment *xiph, EmbeddedArt *art, CMusic
       SetReleaseType(tag, StringListToVectorString(it->second));
     else if (it->first == "BPM")
       tag.SetBPM(strtol(it->second.front().toCString(true), nullptr, 10));
+    else if (it->first == "RELEASESTATUS")
+      tag.SetAlbumReleaseStatus(it->second.front().toCString(true));
     else if (it->first == "RATING")
     {
       // Vorbis ratings are a mess because the standard forgot to mention anything about them.
@@ -901,6 +912,8 @@ bool CTagLoaderTagLib::ParseTag(MP4::Tag *mp4, EmbeddedArt *art, CMusicInfoTag& 
       tag.SetMusicBrainzTrackID(it->second.toStringList().front().to8Bit(true));
     else if (it->first == "----:com.apple.iTunes:MusicBrainz Album Type")
       SetReleaseType(tag, StringListToVectorString(it->second.toStringList()));
+    else if (it->first == "----:com.apple.iTunes:MusicBrainz Album Status")
+      tag.SetAlbumReleaseStatus(it->second.toStringList().front().to8Bit(true));
     else if (it->first == "tmpo")
       tag.SetBPM(it->second.toIntPair().first);
     else if (it->first == "covr")
@@ -1142,8 +1155,8 @@ void CTagLoaderTagLib::AddArtistInstrument(CMusicInfoTag &tag, const std::vector
   {
     std::vector<std::string> roles;
     std::string strArtist = values[i];
-    size_t firstLim = values[i].find_first_of("(");
-    size_t lastLim = values[i].find_last_of(")");
+    size_t firstLim = values[i].find_first_of('(');
+    size_t lastLim = values[i].find_last_of(')');
     if (lastLim != std::string::npos && firstLim != std::string::npos && firstLim < lastLim - 1)
     {
       //Pair of brackets with something between them
@@ -1167,10 +1180,6 @@ void CTagLoaderTagLib::AddArtistInstrument(CMusicInfoTag &tag, const std::vector
 
 bool CTagLoaderTagLib::Load(const std::string& strFileName, CMusicInfoTag& tag, const std::string& fallbackFileExtension, EmbeddedArt *art /* = NULL */)
 {
-  // Dont try to read the tags for streams & shoutcast
-  if (URIUtils::IsInternetStream(strFileName))
-    return false;
-
   std::string strExtension = URIUtils::GetExtension(strFileName);
   StringUtils::TrimLeft(strExtension, ".");
 
@@ -1187,6 +1196,14 @@ bool CTagLoaderTagLib::Load(const std::string& strFileName, CMusicInfoTag& tag, 
   {
     CLog::Log(LOGERROR, "could not create TagLib VFS stream for: %s", strFileName.c_str());
     return false;
+  }
+
+  long file_length = stream->length();
+
+  if (file_length == 0) // a stream returns zero as the length
+  {
+    delete stream; // scrap this instance
+    return false; // and quit without attempting to read non-existent tags
   }
 
   TagLib::File*              file = nullptr;

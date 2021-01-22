@@ -135,6 +135,9 @@ void CGUIWindowSystemInfo::FrameMove()
 #ifndef HAS_DX
     SetControlLabel(i++, "%s %s", 22007, SYSTEM_RENDER_VENDOR);
     SetControlLabel(i++, "%s %s", 22009, SYSTEM_RENDER_VERSION);
+#if defined(TARGET_LINUX)
+    SetControlLabel(i++, "%s %s", 39153, SYSTEM_PLATFORM_WINDOWING);
+#endif
 #else
     SetControlLabel(i++, "%s %s", 22024, SYSTEM_RENDER_VERSION);
 #endif
@@ -156,7 +159,7 @@ void CGUIWindowSystemInfo::FrameMove()
     SET_CONTROL_LABEL(i++, "Serial: " + CServiceBroker::GetCPUInfo()->GetCPUSerial());
 #endif
     SetControlLabel(i++, "%s %s", 22011, SYSTEM_CPU_TEMPERATURE);
-#if (!defined(__arm__) && !defined(__aarch64__)) || defined(TARGET_RASPBERRY_PI)
+#if (!defined(__arm__) && !defined(__aarch64__))
     SetControlLabel(i++, "%s %s", 13284, SYSTEM_CPUFREQUENCY);
 #endif
 #if !(defined(__arm__) && defined(TARGET_LINUX))

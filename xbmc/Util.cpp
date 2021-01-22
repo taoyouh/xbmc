@@ -59,24 +59,24 @@
 #include "CompileInfo.h"
 #include "platform/darwin/DarwinUtils.h"
 #endif
+#include "URL.h"
+#include "cores/VideoPlayer/DVDSubtitles/DVDSubtitleStream.h"
+#include "cores/VideoPlayer/DVDSubtitles/DVDSubtitleTagSami.h"
 #include "filesystem/File.h"
+#include "guilib/LocalizeStrings.h"
+#include "platform/Environment.h"
+#include "settings/AdvancedSettings.h"
 #include "settings/MediaSettings.h"
 #include "settings/Settings.h"
-#include "utils/StringUtils.h"
-#include "settings/AdvancedSettings.h"
 #include "settings/SettingsComponent.h"
-#include "guilib/LocalizeStrings.h"
 #include "utils/Digest.h"
 #include "utils/FileExtensionProvider.h"
+#include "utils/LangCodeExpander.h"
+#include "utils/StringUtils.h"
 #include "utils/TimeUtils.h"
 #include "utils/URIUtils.h"
 #include "utils/log.h"
-#include "platform/Environment.h"
-
-#include "cores/VideoPlayer/DVDSubtitles/DVDSubtitleTagSami.h"
-#include "cores/VideoPlayer/DVDSubtitles/DVDSubtitleStream.h"
-#include "URL.h"
-#include "utils/LangCodeExpander.h"
+#include "video/VideoDatabase.h"
 #include "video/VideoInfoTag.h"
 #ifdef HAVE_LIBCAP
   #include <sys/capability.h>
@@ -310,8 +310,6 @@ std::string CUtil::GetTitleFromPath(const CURL& url, bool bIsFolder /* = false *
   URIUtils::RemoveSlashAtEnd(path);
   std::string strFilename = URIUtils::GetFileName(path);
 
-  std::string strHostname = url.GetHostName();
-
 #ifdef HAS_UPNP
   // UPNP
   if (url.IsProtocol("upnp"))
@@ -501,7 +499,7 @@ void CUtil::RunShortcut(const char* szShortcutPath)
 {
 }
 
-std::string CUtil::GetHomePath(std::string strTarget)
+std::string CUtil::GetHomePath(const std::string& strTarget)
 {
   auto strPath = CEnvironment::getenv(strTarget);
 
@@ -706,11 +704,15 @@ int64_t CUtil::ToInt64(uint32_t high, uint32_t low)
   return n;
 }
 
+/*!
+  \brief Finds next unused filename that matches padded int format identifier provided
+  \param[in]  fn_template    filename template consisting of a padded int format identifier (eg screenshot%03d)
+  \param[in]  max            maximum number to search for avaialble name
+  \return "" on failure, string next available name matching format identifier on success
+*/
+
 std::string CUtil::GetNextFilename(const std::string &fn_template, int max)
 {
-  if (fn_template.find("%03d") == std::string::npos)
-    return "";
-
   std::string searchPath = URIUtils::GetDirectory(fn_template);
   std::string mask = URIUtils::GetExtension(fn_template);
   std::string name = StringUtils::Format(fn_template.c_str(), 0);
@@ -1028,8 +1030,8 @@ void CUtil::SplitExecFunction(const std::string &execString, std::string &functi
 {
   std::string paramString;
 
-  size_t iPos = execString.find("(");
-  size_t iPos2 = execString.rfind(")");
+  size_t iPos = execString.find('(');
+  size_t iPos2 = execString.rfind(')');
   if (iPos != std::string::npos && iPos2 != std::string::npos)
   {
     paramString = execString.substr(iPos + 1, iPos2 - iPos - 1);
@@ -1219,7 +1221,7 @@ int CUtil::GetMatchingSource(const std::string& strPath1, VECSOURCES& VECSOURCES
         return i;
     }
 
-    // doesnt match a name, so try the source path
+    // doesn't match a name, so try the source path
     std::vector<std::string> vecPaths;
 
     // add any concatenated paths if they exist
@@ -1945,6 +1947,14 @@ int CUtil::ScanArchiveForAssociatedItems(const std::string& strArchivePath,
     std::string strPathInRar = item->GetPath();
     std::string strExt = URIUtils::GetExtension(strPathInRar);
 
+    // Check another archive in archive
+    if (strExt == ".zip" || strExt == ".rar")
+    {
+      nItemsAdded +=
+          ScanArchiveForAssociatedItems(strPathInRar, videoNameNoExt, item_exts, associatedFiles);
+      continue;
+    }
+
     // check that the found filename matches the movie filename
     size_t fnl = videoNameNoExt.size();
     // NOTE: We don't know if videoNameNoExt is URL-encoded, so try both
@@ -1953,7 +1963,7 @@ int CUtil::ScanArchiveForAssociatedItems(const std::string& strArchivePath,
         StringUtils::StartsWithNoCase(URIUtils::GetFileName(strPathInRar), CURL::Decode(videoNameNoExt))))
       continue;
 
-    for (auto ext : item_exts)
+    for (const auto& ext : item_exts)
     {
       if (StringUtils::EqualsNoCase(strExt, ext))
       {
@@ -2303,7 +2313,20 @@ void CUtil::ScanForExternalAudio(const std::string& videoPath, std::vector<std::
   GetItemsToScan(strBasePath, CServiceBroker::GetFileExtensionProvider().GetMusicExtensions(), common_sub_dirs, items);
 
   std::vector<std::string> exts = StringUtils::Split(CServiceBroker::GetFileExtensionProvider().GetMusicExtensions(), "|");
-  ScanPathsForAssociatedItems(strAudio, items, exts, vecAudio);
+
+  CVideoDatabase database;
+  database.Open();
+  bool useAllExternalAudio = database.GetUseAllExternalAudioForVideo(videoPath);
+
+  if (useAllExternalAudio)
+  {
+    for (const auto& audioItem : items.GetList())
+    {
+      vecAudio.push_back(audioItem.get()->GetPath());
+    }
+  }
+  else
+    ScanPathsForAssociatedItems(strAudio, items, exts, vecAudio);
 }
 
 bool CUtil::CanBindPrivileged()
@@ -2369,3 +2392,20 @@ int CUtil::GetRandomNumber()
 #endif
 }
 
+void CUtil::CopyUserDataIfNeeded(const std::string& strPath,
+                                 const std::string& file,
+                                 const std::string& destname)
+{
+  std::string destPath;
+  if (destname.empty())
+    destPath = URIUtils::AddFileToFolder(strPath, file);
+  else
+    destPath = URIUtils::AddFileToFolder(strPath, destname);
+
+  if (!CFile::Exists(destPath))
+  {
+    // need to copy it across
+    std::string srcPath = URIUtils::AddFileToFolder("special://xbmc/userdata/", file);
+    CFile::Copy(srcPath, destPath);
+  }
+}

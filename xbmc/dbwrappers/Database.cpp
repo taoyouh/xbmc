@@ -173,6 +173,12 @@ bool CDatabase::DatasetLayout::GetFetch(int fieldno)
   return false;
 }
 
+void CDatabase::DatasetLayout::SetFetch(int fieldno, bool bFetch /*= true*/)
+{
+  if (fieldno >= 0 && fieldno < static_cast<int>(m_fields.size()))
+    m_fields[fieldno].fetch = bFetch;
+}
+
 bool CDatabase::DatasetLayout::GetOutput(int fieldno)
 {
   if (fieldno >= 0 && fieldno < static_cast<int>(m_fields.size()))
@@ -219,7 +225,6 @@ CDatabase::CDatabase() :
 {
   m_openCount = 0;
   m_sqlite = true;
-  m_bMultiWrite = false;
   m_multipleExecute = false;
 }
 
@@ -292,6 +297,40 @@ std::string CDatabase::GetSingleValue(const std::string &strTable, const std::st
 std::string CDatabase::GetSingleValue(const std::string &query)
 {
   return GetSingleValue(query, m_pDS);
+}
+
+int CDatabase::GetSingleValueInt(const std::string& query, std::unique_ptr<Dataset>& ds)
+{
+  int ret = 0;
+  try
+  {
+    if (!m_pDB || !ds)
+      return ret;
+
+    if (ds->query(query) && ds->num_rows() > 0)
+      ret = ds->fv(0).get_asInt();
+
+    ds->close();
+  }
+  catch (...)
+  {
+    CLog::Log(LOGERROR, "%s - failed on query '%s'", __FUNCTION__, query.c_str());
+  }
+  return ret;
+}
+
+int CDatabase::GetSingleValueInt(const std::string& strTable,
+                                 const std::string& strColumn,
+                                 const std::string& strWhereClause /* = std::string() */,
+                                 const std::string& strOrderBy /* = std::string() */)
+{
+  std::string strResult = GetSingleValue(strTable, strColumn, strWhereClause, strOrderBy);
+  return static_cast<int>(strtol(strResult.c_str(), NULL, 10));
+}
+
+int CDatabase::GetSingleValueInt(const std::string& query)
+{
+  return GetSingleValueInt(query, m_pDS);
 }
 
 bool CDatabase::DeleteValues(const std::string &strTable, const Filter &filter /* = Filter() */)
@@ -381,14 +420,14 @@ bool CDatabase::QueueInsertQuery(const std::string &strQuery)
   if (strQuery.empty())
     return false;
 
-  if (!m_bMultiWrite)
+  if (!m_bMultiInsert)
   {
     if (nullptr == m_pDB)
       return false;
     if (nullptr == m_pDS2)
       return false;
 
-    m_bMultiWrite = true;
+    m_bMultiInsert = true;
     m_pDS2->insert();
   }
 
@@ -401,11 +440,11 @@ bool CDatabase::CommitInsertQueries()
 {
   bool bReturn = true;
 
-  if (m_bMultiWrite)
+  if (m_bMultiInsert)
   {
     try
     {
-      m_bMultiWrite = false;
+      m_bMultiInsert = false;
       m_pDS2->post();
       m_pDS2->clear_insert_sql();
     }
@@ -418,6 +457,49 @@ bool CDatabase::CommitInsertQueries()
   }
 
   return bReturn;
+}
+
+size_t CDatabase::GetInsertQueriesCount()
+{
+  return m_pDS2->insert_sql_count();
+}
+
+bool CDatabase::QueueDeleteQuery(const std::string& strQuery)
+{
+  if (strQuery.empty() || !m_pDB || !m_pDS)
+    return false;
+
+  m_bMultiDelete = true;
+  m_pDS->del();
+  m_pDS->add_delete_sql(strQuery);
+  return true;
+}
+
+bool CDatabase::CommitDeleteQueries()
+{
+  bool bReturn = true;
+
+  if (m_bMultiDelete)
+  {
+    try
+    {
+      m_bMultiDelete = false;
+      m_pDS->deletion();
+      m_pDS->clear_delete_sql();
+    }
+    catch (...)
+    {
+      bReturn = false;
+      CLog::Log(LOGERROR, "%s - failed to execute queries", __FUNCTION__);
+    }
+  }
+
+  return bReturn;
+}
+
+size_t CDatabase::GetDeleteQueriesCount()
+{
+  return m_pDS->delete_sql_count();
 }
 
 bool CDatabase::Open()

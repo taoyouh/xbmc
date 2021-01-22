@@ -13,9 +13,10 @@
 #include "DVDInputStreams/DVDInputStreamFFmpeg.h"
 #include "ServiceBroker.h"
 #include "URL.h"
+#include "Util.h"
 #include "commons/Exception.h"
 #include "cores/FFmpeg.h"
-#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h" // for DVD_TIME_BASE
+#include "cores/VideoPlayer/Interface/TimingConstants.h" // for DVD_TIME_BASE
 #include "filesystem/CurlFile.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
@@ -28,7 +29,6 @@
 #include "utils/URIUtils.h"
 #include "utils/XTimeUtils.h"
 #include "utils/log.h"
-#include "Util.h"
 
 #include <sstream>
 #include <utility>
@@ -69,6 +69,31 @@ static const struct StereoModeConversionMap WmvToInternalStereoModeMap[] =
   { "OverUnderLT",              "top_bottom" },
   {}
 };
+
+namespace
+{
+const std::vector<std::string> font_mimetypes = {"application/x-truetype-font",
+                                                 "application/vnd.ms-opentype",
+                                                 "application/x-font-ttf",
+                                                 "application/x-font", // probably incorrect
+                                                 "application/font-sfnt",
+                                                 "font/collection",
+                                                 "font/otf",
+                                                 "font/sfnt",
+                                                 "font/ttf"};
+
+bool AttachmentIsFont(const AVDictionaryEntry* dict)
+{
+  if (dict)
+  {
+    const std::string mimeType = dict->value;
+    return std::find_if(font_mimetypes.begin(), font_mimetypes.end(), [&mimeType](std::string str) {
+             return str == mimeType;
+           }) != font_mimetypes.end();
+  }
+  return false;
+}
+} // namespace
 
 #define FF_MAX_EXTRADATA_SIZE ((1 << 28) - AV_INPUT_BUFFER_PADDING_SIZE)
 
@@ -200,7 +225,7 @@ bool CDVDDemuxFFmpeg::Aborted()
   return false;
 }
 
-bool CDVDDemuxFFmpeg::Open(std::shared_ptr<CDVDInputStream> pInput, bool fileinfo)
+bool CDVDDemuxFFmpeg::Open(const std::shared_ptr<CDVDInputStream>& pInput, bool fileinfo)
 {
   AVInputFormat* iformat = NULL;
   std::string strFile;
@@ -273,7 +298,7 @@ bool CDVDDemuxFFmpeg::Open(std::shared_ptr<CDVDInputStream> pInput, bool fileinf
       if (found != std::string::npos)
       {
         size_t start = found + 3;
-        found = strURL.find("@");
+        found = strURL.find('@');
 
         if (found != std::string::npos && found > start)
         {
@@ -588,7 +613,7 @@ bool CDVDDemuxFFmpeg::Open(std::shared_ptr<CDVDInputStream> pInput, bool fileinf
           }
         }
       }
-      else if (m_pFormatContext->iformat && strcmp(m_pFormatContext->iformat->name, "hls,applehttp") == 0)
+      else if (m_pFormatContext->iformat && strcmp(m_pFormatContext->iformat->name, "hls") == 0)
       {
         nProgram = HLSSelectProgram();
       }
@@ -634,13 +659,6 @@ bool CDVDDemuxFFmpeg::Open(std::shared_ptr<CDVDInputStream> pInput, bool fileinf
     if (!Open(pInputStream, false))
       return false;
     m_pFormatContext->duration = duration;
-  }
-
-  // seems to be a bug in ffmpeg, hls jumps back to start after a couple of seconds
-  // this cures the issue
-  if (m_pFormatContext->iformat && strcmp(m_pFormatContext->iformat->name, "hls,applehttp") == 0)
-  {
-    SeekTime(0);
   }
 
   return true;
@@ -1659,9 +1677,13 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
         }
       }
       case AVMEDIA_TYPE_ATTACHMENT:
-      { //mkv attachments. Only bothering with fonts for now.
+      {
+        // mkv attachments. Only bothering with fonts for now.
+        AVDictionaryEntry* attachmentMimetype =
+            av_dict_get(pStream->metadata, "mimetype", nullptr, 0);
+
         if (pStream->codecpar->codec_id == AV_CODEC_ID_TTF ||
-            pStream->codecpar->codec_id == AV_CODEC_ID_OTF)
+            pStream->codecpar->codec_id == AV_CODEC_ID_OTF || AttachmentIsFont(attachmentMimetype))
         {
           std::string fileName = "special://temp/fonts/";
           XFILE::CDirectory::Create(fileName);
@@ -1966,7 +1988,7 @@ std::string CDVDDemuxFFmpeg::GetStreamCodecName(int iStreamId)
 
     AVCodec* codec = avcodec_find_decoder(stream->codec);
     if (codec)
-      strName = codec->name;
+      strName = avcodec_get_name(codec->id);
   }
   return strName;
 }
@@ -2015,6 +2037,10 @@ bool CDVDDemuxFFmpeg::IsProgramChange()
     if (!stream)
       return true;
     if (m_pFormatContext->streams[idx]->codecpar->codec_id != stream->codec)
+      return true;
+    if (m_pFormatContext->streams[idx]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO &&
+        m_pFormatContext->streams[idx]->codecpar->channels !=
+            static_cast<CDemuxStreamAudio*>(stream)->iChannels)
       return true;
     if (m_pFormatContext->streams[idx]->codecpar->extradata_size != static_cast<int>(stream->ExtraSize))
       return true;
@@ -2209,7 +2235,7 @@ TRANSPORT_STREAM_STATE CDVDDemuxFFmpeg::TransportStreamAudioState()
           if (!m_startTime)
           {
             m_startTime = av_rescale(st->cur_dts, st->time_base.num, st->time_base.den) - 0.000001;
-            m_seekStream = i;
+            m_seekStream = idx;
           }
           return TRANSPORT_STREAM_STATE::READY;
         }
@@ -2262,7 +2288,7 @@ TRANSPORT_STREAM_STATE CDVDDemuxFFmpeg::TransportStreamVideoState()
           if (!m_startTime)
           {
             m_startTime = av_rescale(st->cur_dts, st->time_base.num, st->time_base.den) - 0.000001;
-            m_seekStream = i;
+            m_seekStream = idx;
           }
           return TRANSPORT_STREAM_STATE::READY;
         }

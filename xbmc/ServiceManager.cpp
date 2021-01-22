@@ -62,14 +62,7 @@ bool CServiceManager::InitForTesting()
     return false;
   }
 
-  if (!m_binaryAddonManager->Init())
-  {
-    CLog::Log(LOGFATAL, "CServiceManager::%s: Unable to initialize CBinaryAddonManager", __FUNCTION__);
-    return false;
-  }
-
-  m_fileExtensionProvider.reset(new CFileExtensionProvider(*m_addonMgr,
-                                                           *m_binaryAddonManager));
+  m_fileExtensionProvider.reset(new CFileExtensionProvider(*m_addonMgr));
 
   init_level = 1;
   return true;
@@ -88,7 +81,8 @@ void CServiceManager::DeinitTesting()
 bool CServiceManager::InitStageOne()
 {
   m_Platform.reset(CPlatform::CreateInstance());
-  m_Platform->Init();
+  if (!m_Platform->Init())
+    return false;
 
 #ifdef HAS_PYTHON
   m_XBPython.reset(new XBPython());
@@ -113,12 +107,6 @@ bool CServiceManager::InitStageTwo(const CAppParamParser &params, const std::str
   if (!m_addonMgr->Init())
   {
     CLog::Log(LOGFATAL, "CServiceManager::%s: Unable to start CAddonMgr", __FUNCTION__);
-    return false;
-  }
-
-  if (!m_binaryAddonManager->Init())
-  {
-    CLog::Log(LOGFATAL, "CServiceManager::%s: Unable to initialize CBinaryAddonManager", __FUNCTION__);
     return false;
   }
 
@@ -149,8 +137,7 @@ bool CServiceManager::InitStageTwo(const CAppParamParser &params, const std::str
 
   m_gameRenderManager.reset(new RETRO::CGUIGameRenderManager);
 
-  m_fileExtensionProvider.reset(new CFileExtensionProvider(*m_addonMgr,
-                                                           *m_binaryAddonManager));
+  m_fileExtensionProvider.reset(new CFileExtensionProvider(*m_addonMgr));
 
   m_powerManager.reset(new CPowerManager());
   m_powerManager->Initialize();
@@ -177,7 +164,10 @@ bool CServiceManager::InitStageThree(const std::shared_ptr<CProfileManager>& pro
     *profileManager));
 
   m_contextMenuManager->Init();
-  m_PVRManager->Init();
+
+  // Init PVR manager after login, not already on login screen
+  if (!profileManager->UsingLoginScreen())
+    m_PVRManager->Init();
 
   m_playerCoreFactory.reset(new CPlayerCoreFactory(*profileManager));
 

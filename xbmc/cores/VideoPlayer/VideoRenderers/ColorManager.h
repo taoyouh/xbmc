@@ -14,6 +14,11 @@
 
 #include <string>
 
+extern "C"
+{
+#include <libavutil/pixfmt.h>
+}
+
 enum CMS_DATA_FORMAT
 {
   CMS_DATA_FMT_RGB,
@@ -76,22 +81,23 @@ public:
 
   /*!
    \brief Get a 3D LUT for video color correction
-   \param primaries video primaries (see CONF_FLAGS_COLPRI)
+   \param srcPrimaries video primaries (see AVColorPrimaries)
    \param cmsToken pointer to a color manager configuration token
    \param format of CLUT data
    \param clutSize CLUT resolution
    \param clutData pointer to CLUT data
    \return true on success, false otherwise
    */
-  bool GetVideo3dLut(int primaries, int *cmsToken, CMS_DATA_FORMAT format, int clutSize, uint16_t *clutData);
+  bool GetVideo3dLut(AVColorPrimaries srcPrimaries, int* cmsToken, CMS_DATA_FORMAT format,
+                     int clutSize, uint16_t* clutData);
 
   /*!
    \brief Check if a 3D LUT is still valid
    \param cmsToken pointer to a color manager configuration token
-   \param flags video renderer flags (see CONF_FLAGS_COLPRI)
+   \param srcPrimaries video primaries (see AVColorPrimaries)
    \return true on valid, false if 3D LUT should be reloaded
    */
-  bool CheckConfiguration(int cmsToken, int flags);
+  bool CheckConfiguration(int cmsToken, AVColorPrimaries srcPrimaries);
 
   /*!
   \brief Get a 3D LUT dimention and data size for video color correction
@@ -108,7 +114,7 @@ private:
    \param clutSize pointer to CLUT resolution
    \return true if the file can be loaded, false otherwise
    */
-  static bool Probe3dLut(const std::string filename, int *clutSize);
+  static bool Probe3dLut(const std::string& filename, int* clutSize);
 
   /*! \brief Load a .3dlut file
    \param filename full path and filename
@@ -117,7 +123,10 @@ private:
    \param clutData pointer to CLUT data
    \return true on success, false otherwise
    */
-  static bool Load3dLut(const std::string filename, CMS_DATA_FORMAT format, int clutSize, uint16_t *clutData);
+  static bool Load3dLut(const std::string& filename,
+                        CMS_DATA_FORMAT format,
+                        int clutSize,
+                        uint16_t* clutData);
 
 
 #if defined(HAVE_LCMS2)
@@ -130,7 +139,7 @@ private:
    \param filename full path and filename
    \return display profile (cmsHPROFILE)
    */
-  cmsHPROFILE LoadIccDisplayProfile(const std::string filename);
+  cmsHPROFILE LoadIccDisplayProfile(const std::string& filename);
 
   /* \brief Load an ICC device link
    \param filename full path and filename

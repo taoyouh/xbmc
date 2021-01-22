@@ -75,6 +75,7 @@ bool CRecentlyAddedJob::UpdateVideo()
 
       home->SetProperty("LatestMovie." + value + ".Thumb"       , item->GetArt("thumb"));
       home->SetProperty("LatestMovie." + value + ".Fanart"      , item->GetArt("fanart"));
+      home->SetProperty("LatestMovie." + value + ".Poster"      , item->GetArt("poster"));
     }
   }
   for (; i < NUM_ITEMS; ++i)
@@ -89,6 +90,7 @@ bool CRecentlyAddedJob::UpdateVideo()
     home->SetProperty("LatestMovie." + value + ".Path"        , "");
     home->SetProperty("LatestMovie." + value + ".Trailer"     , "");
     home->SetProperty("LatestMovie." + value + ".Fanart"      , "");
+    home->SetProperty("LatestMovie." + value + ".Poster"      , "");
   }
 
   i = 0;
@@ -145,8 +147,9 @@ bool CRecentlyAddedJob::UpdateVideo()
   }
 
 #if defined(TARGET_DARWIN_TVOS)
-  // send recently added Movies and TvShows to TopShelf
-  CTVOSTopShelf::GetInstance().SetTopShelfItems(items, TVShowItems);
+  // Add recently added Movies and TvShows items on tvOS Kodi TopShelf
+  CTVOSTopShelf::GetInstance().SetTopShelfItems(items, TVOSTopShelfItemsCategory::MOVIES);
+  CTVOSTopShelf::GetInstance().SetTopShelfItems(TVShowItems, TVOSTopShelfItemsCategory::TV_SHOWS);
 #endif
 
   i = 0;
@@ -209,7 +212,7 @@ bool CRecentlyAddedJob::UpdateMusic()
 
   if (musicdatabase.GetRecentlyAddedAlbumSongs("musicdb://songs/", musicItems, NUM_ITEMS))
   {
-    long idAlbum = -1;
+    int idAlbum = -1;
     std::string strAlbumThumb;
     std::string strAlbumFanart;
     for (; i < musicItems.Size(); ++i)
@@ -277,7 +280,7 @@ bool CRecentlyAddedJob::UpdateMusic()
       artfound = musicdatabase.GetArtForItem(-1, album.idAlbum, -1, true, art);
       if (artfound)
       {
-        for (auto artitem : art)
+        for (const auto& artitem : art)
         {
           if (artitem.mediaType == MediaTypeAlbum && artitem.artType == "thumb")
             strThumb = artitem.url;
@@ -337,7 +340,7 @@ bool CRecentlyAddedJob::UpdateTotal()
   musicdatabase.GetArtistsByWhere(musicUrl.ToString(), filter, items, SortDescription(), true);
   int MusArtistTotals = 0;
   if (items.Size() == 1 && items.Get(0)->HasProperty("total"))
-    MusArtistTotals = items.Get(0)->GetProperty("total").asInteger();
+    MusArtistTotals = static_cast<int>(items.Get(0)->GetProperty("total").asInteger());
 
   int MusSongTotals   = atoi(musicdatabase.GetSingleValue("songview"       , "count(1)").c_str());
   int MusAlbumTotals  = atoi(musicdatabase.GetSingleValue("songview"       , "count(distinct strAlbum)").c_str());

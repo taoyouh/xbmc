@@ -9,11 +9,12 @@
 #pragma once
 
 #include "XBDateTime.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "addons/kodi-dev-kit/include/kodi/c-api/addon-instance/pvr/pvr_epg.h"
 #include "pvr/epg/EpgTagsContainer.h"
 #include "threads/CriticalSection.h"
 #include "utils/EventStream.h"
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
@@ -134,7 +135,7 @@ namespace PVR
     std::shared_ptr<CPVREpgInfoTag> GetTagNext() const;
 
     /*!
-     * @brief Get the event that occured previously
+     * @brief Get the event that occurred previously
      * @return The previous event or NULL if it wasn't found.
      */
     std::shared_ptr<CPVREpgInfoTag> GetTagPrevious() const;
@@ -154,6 +155,13 @@ namespace PVR
      * @return The matching event or NULL if it wasn't found.
      */
     std::shared_ptr<CPVREpgInfoTag> GetTagByBroadcastId(unsigned int iUniqueBroadcastId) const;
+
+    /*!
+     * @brief Get the event matching the given database id
+     * @param iDatabaseId The id to look up
+     * @return The matching event or NULL if it wasn't found.
+     */
+    std::shared_ptr<CPVREpgInfoTag> GetTagByDatabaseId(int iDatabaseId) const;
 
     /*!
      * @brief Update an entry in this EPG.
@@ -203,19 +211,18 @@ namespace PVR
                                                              const CDateTime& maxEventStart) const;
 
     /*!
-     * @brief Persist this table in the given database
+     * @brief Write the query to persist data into given database's queue
      * @param database The database.
-     * @param bQueueWrite Don't execute the query immediately but queue it if true.
-     * @return True if the table was persisted, false otherwise.
+     * @return True on success, false otherwise.
      */
-    bool Persist(const std::shared_ptr<CPVREpgDatabase>& database, bool bQueueWrite);
+    bool QueuePersistQuery(const std::shared_ptr<CPVREpgDatabase>& database);
 
     /*!
-     * @brief Delete this table from the given database
+     * @brief Write the delete queries into the given database's queue
      * @param database The database.
-     * @return True if the table was deleted, false otherwise.
+     * @return True on success, false otherwise.
      */
-    bool Delete(const std::shared_ptr<CPVREpgDatabase>& database);
+    bool QueueDeleteQueries(const std::shared_ptr<CPVREpgDatabase>& database);
 
     /*!
      * @brief Get the start time of the first entry in this table.
@@ -260,6 +267,21 @@ namespace PVR
      */
     CEventStream<PVREvent>& Events() { return m_events; }
 
+    /*!
+     * @brief Lock the instance. No other thread gets access to this EPG until Unlock was called.
+     */
+    void Lock() { m_critSection.lock(); }
+
+    /*!
+     * @brief Unlock the instance. Other threads may get access to this EPG again.
+     */
+    void Unlock() { m_critSection.unlock(); }
+
+    /*!
+     * @brief Called to inform the EPG that it has been removed from the EPG container.
+     */
+    void RemovedFromContainer();
+
   private:
     CPVREpg() = delete;
     CPVREpg(const CPVREpg&) = delete;
@@ -276,15 +298,6 @@ namespace PVR
     bool UpdateFromScraper(time_t start, time_t end, bool bForceUpdate);
 
     /*!
-     * @brief Load all EPG entries from clients into a temporary table and update this table with the contents of that temporary table.
-     * @param start Only get entries after this start time. Use 0 to get all entries before "end".
-     * @param end Only get entries before this end time. Use 0 to get all entries after "begin". If both "begin" and "end" are 0, all entries will be updated.
-     * @param bForceUpdate Force update from client even if it's not the time to
-     * @return True if the update was successful, false otherwise.
-     */
-    bool LoadFromClients(time_t start, time_t end, bool bForceUpdate);
-
-    /*!
      * @brief Update the contents of this table with the contents provided in "epg"
      * @param epg The updated contents.
      * @return True if the update was successful, false otherwise.
@@ -298,7 +311,7 @@ namespace PVR
     void Cleanup(int iPastDays);
 
     bool m_bChanged = false; /*!< true if anything changed that needs to be persisted, false otherwise */
-    bool m_bUpdatePending = false; /*!< true if manual update is pending */
+    std::atomic<bool> m_bUpdatePending = {false}; /*!< true if manual update is pending */
     int m_iEpgID = 0; /*!< the database ID of this table */
     std::string m_strName; /*!< the name of this table */
     std::string m_strScraperName; /*!< the name of the scraper to use */

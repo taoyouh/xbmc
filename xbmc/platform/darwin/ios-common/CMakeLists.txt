@@ -3,15 +3,17 @@ set(SOURCES AnnounceReceiver.mm
             DarwinEmbedKeyboard.mm
             DarwinEmbedKeyboardView.mm
             DarwinEmbedNowPlayingInfoManager.mm
-            DarwinNSUserDefaults.mm
-            NSData+GZIP.m)
+            DarwinEmbedUtils.mm
+            NSData+GZIP.m
+            PlatformDarwinEmbedded.cpp)
 
 set(HEADERS AnnounceReceiver.h
             CPUInfoDarwinEmbed.h
             DarwinEmbedKeyboard.h
             DarwinEmbedKeyboardView.h
             DarwinEmbedNowPlayingInfoManager.h
-            DarwinNSUserDefaults.h
-            NSData+GZIP.h)
+            DarwinEmbedUtils.h
+            NSData+GZIP.h
+            PlatformDarwinEmbedded.h)
 
 core_add_library(platform_ios-common)

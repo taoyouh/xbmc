@@ -36,9 +36,11 @@ namespace ADDON
     virtual TYPE MainType() const = 0;
     virtual TYPE Type() const =0;
     virtual bool HasType(TYPE type) const = 0;
+    virtual bool HasMainType(TYPE type) const = 0;
     virtual std::string ID() const =0;
     virtual std::string Name() const =0;
     virtual bool IsInUse() const =0;
+    virtual bool IsBinary() const = 0;
     virtual AddonVersion Version() const =0;
     virtual AddonVersion MinVersion() const =0;
     virtual std::string Summary() const =0;
@@ -53,11 +55,13 @@ namespace ADDON
     virtual std::string Author() const =0;
     virtual std::string Icon() const =0;
     virtual std::string Disclaimer() const =0;
-    virtual std::string Broken() const =0;
+    virtual AddonLifecycleState LifecycleState() const = 0;
+    virtual std::string LifecycleStateDescription() const = 0;
     virtual CDateTime InstallDate() const =0;
     virtual CDateTime LastUpdated() const =0;
     virtual CDateTime LastUsed() const =0;
     virtual std::string Origin() const =0;
+    virtual std::string OriginName() const = 0;
     virtual uint64_t PackageSize() const =0;
     virtual const InfoMap &ExtraInfo() const =0;
     virtual bool HasSettings() =0;
@@ -78,13 +82,11 @@ namespace ADDON
     virtual bool MeetsVersion(const AddonVersion& versionMin,
                               const AddonVersion& version) const = 0;
     virtual bool ReloadSettings() =0;
+    virtual void ResetSettings() = 0;
     virtual AddonPtr GetRunningInstance() const=0;
     virtual void OnPreInstall() =0;
     virtual void OnPostInstall(bool update, bool modal) =0;
     virtual void OnPreUnInstall() =0;
     virtual void OnPostUnInstall() =0;
-
-    // Derived property
-    bool IsBroken() const { return !Broken().empty(); }
   };
 };

@@ -101,6 +101,8 @@ add_custom_command(TARGET ${APP_NAME_LC} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/DllPaths_generated.h
                                      ${CMAKE_BINARY_DIR}/xbmc/DllPaths_generated.h
     COMMAND "ACTION=build"
+            "APP_NAME=${APP_NAME}"
+            "XBMC_DEPENDS=${DEPENDS_PATH}"
             ${CMAKE_SOURCE_DIR}/tools/darwin/Support/CopyRootFiles-darwin_embedded.command
     COMMAND "XBMC_DEPENDS=${DEPENDS_PATH}"
             "PYTHON_VERSION=${PYTHON_VERSION}"
@@ -120,11 +122,6 @@ endif()
 set(DEPENDS_ROOT_FOR_XCODE ${NATIVEPREFIX}/..)
 configure_file(${CMAKE_SOURCE_DIR}/tools/darwin/packaging/darwin_embedded/mkdeb-darwin_embedded.sh.in
                ${CMAKE_BINARY_DIR}/tools/darwin/packaging/darwin_embedded/mkdeb-darwin_embedded.sh @ONLY)
-               
-if(CORE_PLATFORM_NAME_LC STREQUAL ios)
-  configure_file(${CMAKE_SOURCE_DIR}/tools/darwin/packaging/darwin_embedded/migrate_to_kodi.sh.in
-                 ${CMAKE_BINARY_DIR}/tools/darwin/packaging/darwin_embedded/migrate_to_kodi.sh @ONLY)
-endif()
 
 add_custom_target(deb
     COMMAND sh ./mkdeb-darwin_embedded.sh ${CORE_BUILD_CONFIG}

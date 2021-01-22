@@ -9,7 +9,6 @@
 #include "EpgInfoTag.h"
 
 #include "ServiceBroker.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
 #include "pvr/PVRManager.h"
 #include "pvr/PVRPlaybackState.h"
 #include "pvr/addons/PVRClient.h"
@@ -81,10 +80,10 @@ CPVREpgInfoTag::CPVREpgInfoTag(const EPG_TAG& data, int iClientId, const std::sh
     m_channelData = channelData;
 
     if (m_channelData->ClientId() != iClientId)
-      CLog::LogF(LOGERROR, "Client id mismatch (channel: %d, epg: %d)!",
-                 m_channelData->ClientId(), iClientId);
+      CLog::LogF(LOGERROR, "Client id mismatch (channel: {}, epg: {})!", m_channelData->ClientId(),
+                 iClientId);
     if (m_channelData->UniqueClientChannelId() != static_cast<int>(data.iUniqueChannelId))
-      CLog::LogF(LOGERROR, "Channel uid mismatch (channel: %d, epg: %d)!",
+      CLog::LogF(LOGERROR, "Channel uid mismatch (channel: {}, epg: {})!",
                  m_channelData->UniqueClientChannelId(), data.iUniqueChannelId);
   }
   else
@@ -154,7 +153,7 @@ bool CPVREpgInfoTag::operator !=(const CPVREpgInfoTag& right) const
 void CPVREpgInfoTag::Serialize(CVariant& value) const
 {
   CSingleLock lock(m_critSection);
-  value["broadcastid"] = m_iUniqueBroadcastID;
+  value["broadcastid"] = m_iDatabaseID; // Use DB id here as it is unique across PVR clients
   value["channeluid"] = m_channelData->UniqueClientChannelId();
   value["parentalrating"] = m_iParentalRating;
   value["rating"] = m_iStarRating;
@@ -186,6 +185,7 @@ void CPVREpgInfoTag::Serialize(CVariant& value) const
   value["wasactive"] = WasActive();
   value["isseries"] = IsSeries();
   value["serieslink"] = m_strSeriesLink;
+  value["clientid"] = m_channelData->ClientId();
 }
 
 int CPVREpgInfoTag::ClientID() const
@@ -196,12 +196,8 @@ int CPVREpgInfoTag::ClientID() const
 
 CDateTime CPVREpgInfoTag::GetCurrentPlayingTime() const
 {
-  const std::shared_ptr<CPVRPlaybackState> playbackState =
-      CServiceBroker::GetPVRManager().PlaybackState();
-  if (playbackState && playbackState->IsPlayingChannel(ClientID(), UniqueChannelID()))
-    return playbackState->GetPlaybackTime();
-  else
-    return CDateTime::GetUTCDateTime();
+  return CServiceBroker::GetPVRManager().PlaybackState()->GetChannelPlaybackTime(ClientID(),
+                                                                                 UniqueChannelID());
 }
 
 bool CPVREpgInfoTag::IsActive() const
@@ -555,26 +551,15 @@ bool CPVREpgInfoTag::Update(const CPVREpgInfoTag& tag, bool bUpdateBroadcastId /
   return bChanged;
 }
 
-bool CPVREpgInfoTag::Persist(const std::shared_ptr<CPVREpgDatabase>& database, bool bSingleUpdate /* = true */)
+bool CPVREpgInfoTag::QueuePersistQuery(const std::shared_ptr<CPVREpgDatabase>& database)
 {
-  bool bReturn = false;
-
   if (!database)
   {
     CLog::LogF(LOGERROR, "Could not open the EPG database");
-    return bReturn;
+    return false;
   }
 
-  int iId = database->Persist(*this, bSingleUpdate);
-  if (iId >= 0)
-  {
-    bReturn = true;
-
-    if (iId > 0)
-      m_iDatabaseID = iId;
-  }
-
-  return bReturn;
+  return database->QueuePersistQuery(*this);
 }
 
 std::vector<PVR_EDL_ENTRY> CPVREpgInfoTag::GetEdl() const

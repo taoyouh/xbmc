@@ -114,7 +114,7 @@ bool CHTTPPythonHandler::CanHandleRequest(const HTTPRequest &request) const
   return true;
 }
 
-int CHTTPPythonHandler::HandleRequest()
+MHD_RESULT CHTTPPythonHandler::HandleRequest()
 {
   if (m_response.type == HTTPError || m_response.type == HTTPRedirect)
     return MHD_YES;
@@ -149,7 +149,8 @@ int CHTTPPythonHandler::HandleRequest()
       pythonRequest->port = port;
     }
 
-    CHTTPPythonInvoker* pythonInvoker = new CHTTPPythonWsgiInvoker(&g_pythonParser, pythonRequest);
+    CHTTPPythonInvoker* pythonInvoker =
+        new CHTTPPythonWsgiInvoker(&CServiceBroker::GetXBPython(), pythonRequest);
     LanguageInvokerPtr languageInvokerPtr(pythonInvoker);
     int result = CScriptInvocationManager::GetInstance().ExecuteSync(m_scriptPath, languageInvokerPtr, m_addon, args, 30000, false);
 

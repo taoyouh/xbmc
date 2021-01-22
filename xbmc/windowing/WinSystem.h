@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "HDRStatus.h"
 #include "OSScreenSaver.h"
 #include "Resolution.h"
 #include "VideoSync.h"
@@ -49,6 +50,8 @@ public:
   // Access render system interface
   virtual CRenderSystemBase *GetRenderSystem() { return nullptr; }
 
+  virtual const std::string GetName() { return "platform default"; }
+
   // windowing interfaces
   virtual bool InitWindowSystem();
   virtual bool DestroyWindowSystem();
@@ -56,6 +59,8 @@ public:
   virtual bool DestroyWindow(){ return false; }
   virtual bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop) = 0;
   virtual bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) = 0;
+  virtual bool DisplayHardwareScalingEnabled() { return false; }
+  virtual void UpdateDisplayHardwareScaling(const RESOLUTION_INFO& resInfo) { }
   virtual bool MoveWindow(int topLeft, int topRight){return false;}
   virtual void FinishModeChange(RESOLUTION res){}
   virtual void FinishWindowResize(int newWidth, int newHeight) {ResizeWindow(newWidth, newHeight, -1, -1);}
@@ -157,6 +162,8 @@ public:
   std::shared_ptr<CDPMSSupport> GetDPMSManager();
   virtual bool SetHDR(const VideoPicture* videoPicture) { return false; };
   virtual bool IsHDRDisplay() { return false; };
+  virtual HDR_STATUS ToggleHDR() { return HDR_STATUS::HDR_UNSUPPORTED; };
+  virtual HDR_STATUS GetOSHDRStatus() { return HDR_STATUS::HDR_UNSUPPORTED; };
 
   static const char* SETTING_WINSYSTEM_IS_HDR_DISPLAY;
 

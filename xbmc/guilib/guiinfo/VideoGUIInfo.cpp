@@ -25,6 +25,7 @@
 #include "guilib/guiinfo/GUIInfoLabels.h"
 #include "playlists/PlayList.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/SettingUtils.h"
 #include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
 #include "settings/lib/Setting.h"
@@ -86,8 +87,9 @@ bool CVideoGUIInfo::InitCurrentItem(CFileItem *item)
 bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int contextWindow, const CGUIInfo &info, std::string *fallback) const
 {
   // For videoplayer "offset" and "position" info labels check playlist
-  if (info.GetData1() && info.m_info >= VIDEOPLAYER_OFFSET_POSITION_FIRST &&
-      info.m_info <= VIDEOPLAYER_OFFSET_POSITION_LAST)
+  if (info.GetData1() && ((info.m_info >= VIDEOPLAYER_OFFSET_POSITION_FIRST &&
+      info.m_info <= VIDEOPLAYER_OFFSET_POSITION_LAST) ||
+      (info.m_info >= PLAYER_OFFSET_POSITION_FIRST && info.m_info <= PLAYER_OFFSET_POSITION_LAST)))
     return GetPlaylistInfo(value, info);
 
   const CVideoInfoTag* tag = item->GetVideoInfoTag();
@@ -114,11 +116,7 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         return !value.empty();
       case VIDEOPLAYER_TITLE:
         value = tag->m_strTitle;
-        if (value.empty())
-          value = item->GetLabel();
-        if (value.empty())
-          value = CUtil::GetTitleFromPath(item->GetPath());
-        return true;
+        return !value.empty();
       case LISTITEM_TITLE:
         value = tag->m_strTitle;
         return true;
@@ -351,15 +349,14 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         {
           std::shared_ptr<CSettingList> setting(std::dynamic_pointer_cast<CSettingList>( 
             CServiceBroker::GetSettingsComponent()->GetSettings()->GetSetting(CSettings::SETTING_VIDEOLIBRARY_SHOWUNWATCHEDPLOTS)));
-          if (tag->m_type != MediaTypeTvShow &&
-              tag->m_type != MediaTypeVideoCollection &&
-              tag->GetPlayCount() == 0 &&
-              setting &&
-              (
-               (tag->m_type == MediaTypeMovie && (!setting->FindIntInList(CSettings::VIDEOLIBRARY_PLOTS_SHOW_UNWATCHED_MOVIES))) ||  
-               (tag->m_type == MediaTypeEpisode && (!setting->FindIntInList(CSettings::VIDEOLIBRARY_PLOTS_SHOW_UNWATCHED_TVSHOWEPISODES)))
-              )
-             ) 
+          if (tag->m_type != MediaTypeTvShow && tag->m_type != MediaTypeVideoCollection &&
+              tag->GetPlayCount() == 0 && setting &&
+              ((tag->m_type == MediaTypeMovie &&
+                !CSettingUtils::FindIntInList(
+                    setting, CSettings::VIDEOLIBRARY_PLOTS_SHOW_UNWATCHED_MOVIES)) ||
+               (tag->m_type == MediaTypeEpisode &&
+                !CSettingUtils::FindIntInList(
+                    setting, CSettings::VIDEOLIBRARY_PLOTS_SHOW_UNWATCHED_TVSHOWEPISODES))))
           {
             value = g_localizeStrings.Get(20370);
           }
@@ -634,6 +631,32 @@ bool CVideoGUIInfo::GetPlaylistInfo(std::string& value, const CGUIInfo& info) co
   }
 
   return GetLabel(value, playlistItem.get(), 0, CGUIInfo(info.m_info), nullptr);
+}
+
+bool CVideoGUIInfo::GetFallbackLabel(std::string& value,
+                                     const CFileItem* item,
+                                     int contextWindow,
+                                     const CGUIInfo& info,
+                                     std::string* fallback)
+{
+  const CVideoInfoTag* tag = item->GetVideoInfoTag();
+  if (tag)
+  {
+    switch (info.m_info)
+    {
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      // VIDEOPLAYER_*
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      case VIDEOPLAYER_TITLE:
+        value = item->GetLabel();
+        if (value.empty())
+          value = CUtil::GetTitleFromPath(item->GetPath());
+        return true;
+      default:
+        break;
+    }
+  }
+  return false;
 }
 
 bool CVideoGUIInfo::GetInt(int& value, const CGUIListItem *gitem, int contextWindow, const CGUIInfo &info) const

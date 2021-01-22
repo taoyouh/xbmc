@@ -21,12 +21,18 @@ const int AUTO_UPDATES_ON = 0;
 const int AUTO_UPDATES_NOTIFY = 1;
 const int AUTO_UPDATES_NEVER = 2;
 
+enum class AddonRepoUpdateMode
+{
+  OFFICIAL_ONLY = 0,
+  ANY_REPOSITORY = 1
+};
+
 class CAddonSystemSettings : public ISettingCallback
 {
 public:
   static CAddonSystemSettings& GetInstance();
-  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
-  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingAction(const std::shared_ptr<const CSetting>& setting) override;
+  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override;
 
   bool GetActive(const TYPE& type, AddonPtr& addon);
   bool SetActive(const TYPE& type, const std::string& addonID);
@@ -39,11 +45,19 @@ public:
   */
   int GetAddonAutoUpdateMode() const;
 
+
+  /*!
+   * Gets Kodi preferred addon repository update mode
+   *
+   * @return the preferred mode value
+   */
+  AddonRepoUpdateMode GetAddonRepoUpdateMode() const;
+
   /*!
    * Attempt to unset addon as active. Returns true if addon is no longer active,
    * false if it could not be unset (e.g. if the addon is the default)
    */
-  bool UnsetActive(const AddonPtr& addon);
+  bool UnsetActive(const AddonInfoPtr& addon);
 
 private:
   CAddonSystemSettings();

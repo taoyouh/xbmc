@@ -9,10 +9,10 @@
 #include "guilib/guiinfo/SystemGUIInfo.h"
 
 #include "Application.h"
+#include "GUIPassword.h"
 #include "LangInfo.h"
 #include "ServiceBroker.h"
-#include "addons/BinaryAddonCache.h"
-#include "GUIPassword.h"
+#include "addons/AddonManager.h"
 #include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
@@ -198,6 +198,12 @@ bool CSystemGUIInfo::GetLabel(std::string& value, const CFileItem *item, int con
     case SYSTEM_BUILD_DATE:
       value = CSysInfo::GetBuildDate();
       return true;
+    case SYSTEM_BUILD_VERSION_CODE:
+      value = CSysInfo::GetVersionCode();
+      return true;
+    case SYSTEM_BUILD_VERSION_GIT:
+      value = CSysInfo::GetVersionGit();
+      return true;
     case SYSTEM_FREE_MEMORY:
     case SYSTEM_FREE_MEMORY_PERCENT:
     case SYSTEM_USED_MEMORY:
@@ -299,6 +305,15 @@ bool CSystemGUIInfo::GetLabel(std::string& value, const CFileItem *item, int con
     case SYSTEM_RENDER_VERSION:
       value = CServiceBroker::GetRenderSystem()->GetRenderVersionString();
       return true;
+    case SYSTEM_ADDON_UPDATE_COUNT:
+      value = CServiceBroker::GetAddonMgr().GetLastAvailableUpdatesCountAsString();
+      return true;
+#if defined(TARGET_LINUX)
+    case SYSTEM_PLATFORM_WINDOWING:
+      value = CServiceBroker::GetWinSystem()->GetName();
+      StringUtils::ToCapitalize(value);
+      return true;
+#endif
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // NETWORK_*
@@ -486,13 +501,6 @@ bool CSystemGUIInfo::GetBool(bool& value, const CGUIListItem *gitem, int context
       value = false;
 #endif
       return true;
-    case SYSTEM_PLATFORM_LINUX_RASPBERRY_PI:
-#if defined(TARGET_RASPBERRY_PI)
-      value = true;
-#else
-      value = false;
-#endif
-      return true;
     case SYSTEM_MEDIA_DVD:
       value = CServiceBroker::GetMediaManager().IsDiscInDrive();
       return true;
@@ -542,13 +550,8 @@ bool CSystemGUIInfo::GetBool(bool& value, const CGUIListItem *gitem, int context
       value = true;
       return true;
     case SYSTEM_HAS_PVR_ADDON:
-    {
-      ADDON::VECADDONS pvrAddons;
-      ADDON::CBinaryAddonCache &addonCache = CServiceBroker::GetBinaryAddonCache();
-      addonCache.GetAddons(pvrAddons, ADDON::ADDON_PVRDLL);
-      value = (pvrAddons.size() > 0);
+      value = CServiceBroker::GetAddonMgr().HasAddons(ADDON::ADDON_PVRDLL);
       return true;
-    }
     case SYSTEM_HAS_CMS:
 #if defined(HAS_GL) || defined(HAS_DX)
       value = true;

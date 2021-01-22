@@ -13,8 +13,6 @@
 #include "guilib/GUIWindowManager.h"
 #include "storage/MediaManager.h"
 #include "utils/Variant.h"
-#include "utils/XMLUtils.h"
-#include "utils/log.h"
 
 #include <utility>
 
@@ -75,12 +73,10 @@ void CGUIDialogPlayEject::OnInitWindow()
   CGUIDialogYesNo::OnInitWindow();
 }
 
-bool CGUIDialogPlayEject::ShowAndGetInput(const CFileItem & item,
-  unsigned int uiAutoCloseTime /* = 0 */)
+bool CGUIDialogPlayEject::ShowAndGetInput(const std::string& strLine1,
+                                          const std::string& strLine2,
+                                          unsigned int uiAutoCloseTime /* = 0 */)
 {
-  // Make sure we're actually dealing with a Disc Stub
-  if (!item.IsDiscStub())
-    return false;
 
   // Create the dialog
   CGUIDialogPlayEject * pDialog = (CGUIDialogPlayEject *)CServiceBroker::GetGUI()->GetWindowManager().
@@ -88,30 +84,11 @@ bool CGUIDialogPlayEject::ShowAndGetInput(const CFileItem & item,
   if (!pDialog)
     return false;
 
-  // Figure out Lines 1 and 2 of the dialog
-  std::string strLine1, strLine2;
-  CXBMCTinyXML discStubXML;
-  if (discStubXML.LoadFile(item.GetPath()))
-  {
-    TiXmlElement * pRootElement = discStubXML.RootElement();
-    if (!pRootElement || StringUtils::CompareNoCase(pRootElement->Value(), "discstub") != 0)
-      CLog::Log(LOGERROR, "Error loading %s, no <discstub> node", item.GetPath().c_str());
-    else
-    {
-      XMLUtils::GetString(pRootElement, "title", strLine1);
-      XMLUtils::GetString(pRootElement, "message", strLine2);
-    }
-  }
-
-  // Use the label for Line 1 if not defined
-  if (strLine1.empty())
-    strLine1 = item.GetLabel();
-
   // Setup dialog parameters
   pDialog->SetHeading(CVariant{219});
   pDialog->SetLine(0, CVariant{429});
-  pDialog->SetLine(1, CVariant{std::move(strLine1)});
-  pDialog->SetLine(2, CVariant{std::move(strLine2)});
+  pDialog->SetLine(1, CVariant{strLine1});
+  pDialog->SetLine(2, CVariant{strLine2});
   pDialog->SetChoice(ID_BUTTON_PLAY - 10, 208);
   pDialog->SetChoice(ID_BUTTON_EJECT - 10, 13391);
   if (uiAutoCloseTime)

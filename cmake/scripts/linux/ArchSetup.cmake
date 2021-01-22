@@ -37,16 +37,6 @@ else()
   endif()
 endif()
 
-# temp until further cleanup is done
-# add Raspberry Pi 2 and 3 specific flags
-if(CORE_PLATFORM_NAME_LC STREQUAL rbpi)
-  if(CPU MATCHES "cortex-a7")
-    set(NEON_FLAGS "-fPIC -mcpu=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4 -mvectorize-with-neon-quad")
-  elseif(CPU MATCHES "cortex-a53")
-    set(NEON_FLAGS "-fPIC -mcpu=cortex-a53 -mfloat-abi=hard -mfpu=neon-fp-armv8 -mvectorize-with-neon-quad")
-  endif()
-endif()
-
 if((CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL MinSizeRel)
     AND CMAKE_COMPILER_IS_GNUCXX)
   # Make sure we strip binaries in Release build
@@ -84,13 +74,6 @@ endif()
 include(LDGOLD)
 
 include(CheckIncludeFiles)
-check_include_files("linux/memfd.h" HAVE_LINUX_MEMFD)
-if(HAVE_LINUX_MEMFD)
-  list(APPEND ARCH_DEFINES "-DHAVE_LINUX_MEMFD=1")
-else()
-  message(STATUS "include/linux/memfd.h not found")
-endif()
-
 check_include_files("linux/udmabuf.h" HAVE_LINUX_UDMABUF)
 if(HAVE_LINUX_UDMABUF)
   list(APPEND ARCH_DEFINES "-DHAVE_LINUX_UDMABUF=1")
@@ -118,6 +101,15 @@ check_symbol_exists("mkostemp" "stdlib.h" HAVE_MKOSTEMP)
 set(CMAKE_REQUIRED_DEFINITIONS "")
 if(HAVE_MKOSTEMP)
   list(APPEND ARCH_DEFINES "-DHAVE_MKOSTEMP=1")
+endif()
+
+set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
+check_symbol_exists("memfd_create" "sys/mman.h" HAVE_LINUX_MEMFD)
+set(CMAKE_REQUIRED_DEFINITIONS "")
+if(HAVE_LINUX_MEMFD)
+  list(APPEND ARCH_DEFINES "-DHAVE_LINUX_MEMFD=1")
+else()
+  message(STATUS "memfd_create() not found")
 endif()
 
 # Additional SYSTEM_DEFINES

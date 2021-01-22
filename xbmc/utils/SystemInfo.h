@@ -20,6 +20,8 @@
 
 #define MAX_KNOWN_ATTRIBUTES  46
 
+#define REG_CURRENT_VERSION L"Software\\Microsoft\\Windows NT\\CurrentVersion"
+
 
 class CSysData
 {
@@ -74,7 +76,13 @@ public:
     WindowsVersionWin8,         // Windows 8, Windows Server 2012
     WindowsVersionWin8_1,       // Windows 8.1
     WindowsVersionWin10,        // Windows 10
-    WindowsVersionWin10_FCU,    // Windows 10 Fall Creators Update
+    WindowsVersionWin10_1709,   // Windows 10 1709 (FCU)
+    WindowsVersionWin10_1803,   // Windows 10 1803
+    WindowsVersionWin10_1809,   // Windows 10 1809
+    WindowsVersionWin10_1903,   // Windows 10 1903
+    WindowsVersionWin10_1909,   // Windows 10 1909
+    WindowsVersionWin10_2004,   // Windows 10 2004
+    WindowsVersionWin10_Future, // Windows 10 future build
     /* Insert new Windows versions here, when they'll be known */
     WindowsVersionFuture = 100  // Future Windows version, not known to code
   };
@@ -108,6 +116,8 @@ public:
   static std::string GetDeviceName();
   static std::string GetVersion();
   static std::string GetVersionShort();
+  static std::string GetVersionCode();
+  static std::string GetVersionGit();
   static std::string GetBuildDate();
 
   bool HasInternet();

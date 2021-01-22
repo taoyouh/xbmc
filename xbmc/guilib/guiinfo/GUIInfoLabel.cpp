@@ -172,7 +172,7 @@ std::string LocalizeReplacer(const std::string &str)
 std::string AddonReplacer(const std::string &str)
 {
   // assumes "addon.id #####"
-  size_t length = str.find(" ");
+  size_t length = str.find(' ');
   const std::string addonid = str.substr(0, length);
   int stringid = atoi(str.substr(length + 1).c_str());
   return g_localizeStrings.GetAddonString(addonid, stringid);
@@ -258,7 +258,7 @@ void CGUIInfoLabel::Parse(const std::string &label, int context)
             if (info == 0)
               info = infoMgr.RegisterSkinVariableString(g_SkinInfo->CreateSkinVariable(params[0], context));
             if (info == 0) // skinner didn't define this conditional label!
-              CLog::Log(LOGWARNING, "Label Formating: $VAR[%s] is not defined", params[0].c_str());
+              CLog::Log(LOGWARNING, "Label Formatting: $VAR[%s] is not defined", params[0].c_str());
           }
           else
             info = infoMgr.TranslateString(params[0]);

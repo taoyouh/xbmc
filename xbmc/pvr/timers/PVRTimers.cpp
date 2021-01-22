@@ -101,22 +101,31 @@ bool CPVRTimers::Load()
   // load local timers from database
   bool bReturn = LoadFromDatabase();
 
-  Update(); // update from clients
-
-  CServiceBroker::GetPVRManager().EpgContainer().Events().Subscribe(this, &CPVRTimers::Notify);
-  Create();
+  // update from clients
+  Update();
 
   return bReturn;
 }
 
 void CPVRTimers::Unload()
 {
-  StopThread();
-  CServiceBroker::GetPVRManager().EpgContainer().Events().Unsubscribe(this);
-
   // remove all tags
   CSingleLock lock(m_critSection);
   m_tags.clear();
+}
+
+void CPVRTimers::Start()
+{
+  Stop();
+
+  CServiceBroker::GetPVRManager().EpgContainer().Events().Subscribe(this, &CPVRTimers::Notify);
+  Create();
+}
+
+void CPVRTimers::Stop()
+{
+  StopThread();
+  CServiceBroker::GetPVRManager().EpgContainer().Events().Unsubscribe(this);
 }
 
 bool CPVRTimers::Update()
@@ -200,6 +209,23 @@ void CPVRTimers::RemoveEntry(const std::shared_ptr<CPVRTimerInfoTag>& tag)
   }
 }
 
+bool CPVRTimers::CheckAndAppendTimerNotification(
+    std::vector<std::pair<int, std::string>>& timerNotifications,
+    const std::shared_ptr<CPVRTimerInfoTag>& tag,
+    bool bDeleted) const
+{
+  // no notification on first update or if previous update failed for tag's client.
+  if (!m_bFirstUpdate && std::find(m_failedClients.cbegin(), m_failedClients.cend(),
+                                   tag->m_iClientId) == m_failedClients.cend())
+  {
+    const std::string strMessage =
+        bDeleted ? tag->GetDeletedNotificationText() : tag->GetNotificationText();
+    timerNotifications.emplace_back(std::make_pair(tag->m_iClientId, strMessage));
+    return true;
+  }
+  return false;
+}
+
 bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vector<int>& failedClients)
 {
   bool bChanged(false);
@@ -225,14 +251,10 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
           existingTimer->ResetChildState();
 
           if (bStateChanged)
-          {
-            std::string strMessage;
-            existingTimer->GetNotificationText(strMessage);
-            timerNotifications.emplace_back(std::make_pair((*timerIt)->m_iClientId, strMessage));
-          }
+            CheckAndAppendTimerNotification(timerNotifications, existingTimer, false);
 
-          CLog::LogFC(LOGDEBUG, LOGPVR, "Updated timer %d on client %d",
-                      (*timerIt)->m_iClientIndex, (*timerIt)->m_iClientId);
+          CLog::LogFC(LOGDEBUG, LOGPVR, "Updated timer {} on client {}", (*timerIt)->m_iClientIndex,
+                      (*timerIt)->m_iClientId);
         }
       }
       else
@@ -246,12 +268,10 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
         bChanged = true;
         bAddedOrDeleted = true;
 
-        std::string strMessage;
-        newTimer->GetNotificationText(strMessage);
-        timerNotifications.emplace_back(newTimer->m_iClientId, strMessage);
+        CheckAndAppendTimerNotification(timerNotifications, newTimer, false);
 
-        CLog::LogFC(LOGDEBUG, LOGPVR, "Added timer %d on client %d",
-                    (*timerIt)->m_iClientIndex, (*timerIt)->m_iClientId);
+        CLog::LogFC(LOGDEBUG, LOGPVR, "Added timer {} on client {}", (*timerIt)->m_iClientIndex,
+                    (*timerIt)->m_iClientId);
       }
     }
   }
@@ -287,10 +307,10 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
           continue;
         }
 
-        CLog::LogFC(LOGDEBUG, LOGPVR, "Deleted timer %d on client %d",
-                    timer->m_iClientIndex, timer->m_iClientId);
+        CLog::LogFC(LOGDEBUG, LOGPVR, "Deleted timer {} on client {}", timer->m_iClientIndex,
+                    timer->m_iClientId);
 
-        timerNotifications.emplace_back(timer->m_iClientId, timer->GetDeletedNotificationText());
+        CheckAndAppendTimerNotification(timerNotifications, timer, true);
 
         it2 = it->second.erase(it2);
 
@@ -301,7 +321,7 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
                (!timer->m_bStartAnyTime && timer->StartAsUTC() != it->first))
       {
         /* timer start has changed */
-        CLog::LogFC(LOGDEBUG, LOGPVR, "Changed start time timer %d on client %d",
+        CLog::LogFC(LOGDEBUG, LOGPVR, "Changed start time timer {} on client {}",
                     timer->m_iClientIndex, timer->m_iClientId);
 
         /* remember timer */
@@ -347,7 +367,10 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
     }
   }
 
+  m_failedClients = failedClients;
+  m_bFirstUpdate = false;
   m_bIsUpdating = false;
+
   if (bChanged)
   {
     UpdateChannels();
@@ -355,7 +378,7 @@ bool CPVRTimers::UpdateEntries(const CPVRTimersContainer& timers, const std::vec
 
     NotifyTimersEvent(bAddedOrDeleted);
 
-    if (!timerNotifications.empty() && CServiceBroker::GetPVRManager().IsStarted())
+    if (!timerNotifications.empty())
     {
       CPVREventLogJob* job = new CPVREventLogJob;
 
@@ -520,14 +543,13 @@ bool CPVRTimers::UpdateEntries(int iMaxNotificationDelay)
         }
 
         // check for due timers and announce/delete them
-        int iMarginStart = timer->GetTimerType()->SupportsStartEndMargin() ? timer->MarginStart() : 0;
+        int iMarginStart = timer->GetTimerType()->SupportsStartMargin() ? timer->MarginStart() : 0;
         if (!timer->IsTimerRule() && (timer->StartAsUTC() - CDateTimeSpan(0, 0, iMarginStart, iMaxNotificationDelay)) < now)
         {
           if (timer->IsReminder() && timer->m_state != PVR_TIMER_STATE_DISABLED)
           {
             // reminder is due / over due. announce it.
             m_remindersToAnnounce.push(timer);
-            CServiceBroker::GetPVRManager().PublishEvent(PVREvent::AnnounceReminder);
           }
 
           if (timer->EndAsUTC() >= now)
@@ -649,10 +671,10 @@ bool CPVRTimers::UpdateEntries(int iMaxNotificationDelay)
 
   // announce changes
   if (bChanged)
-  {
-    lock.Leave();
     NotifyTimersEvent();
-  }
+
+  if (!m_remindersToAnnounce.empty())
+    CServiceBroker::GetPVRManager().PublishEvent(PVREvent::AnnounceReminder);
 
   return bChanged;
 }
@@ -866,8 +888,8 @@ bool CPVRTimers::DeleteTimersOnChannel(const std::shared_ptr<CPVRChannel>& chann
 
         if (bDeleteActiveItem && bDeleteTimerRuleItem && bChannelsMatch)
         {
-          CLog::LogFC(LOGDEBUG, LOGPVR, "Deleted timer %d on client %d",
-                      (*timerIt)->m_iClientIndex, (*timerIt)->m_iClientId);
+          CLog::LogFC(LOGDEBUG, LOGPVR, "Deleted timer {} on client {}", (*timerIt)->m_iClientIndex,
+                      (*timerIt)->m_iClientId);
           bReturn = ((*timerIt)->DeleteFromClient(true) == TimerOperationResult::OK) || bReturn;
           bChanged = true;
         }
@@ -962,20 +984,6 @@ TimerOperationResult CPVRTimers::DeleteTimer(const std::shared_ptr<CPVRTimerInfo
   }
 
   return ret;
-}
-
-bool CPVRTimers::RenameTimer(const std::shared_ptr<CPVRTimerInfoTag>& tag, const std::string& strNewName)
-{
-  bool bReturn = false;
-  if (tag->IsOwnedByClient())
-  {
-    bReturn = tag->RenameOnClient(strNewName);
-  }
-  else
-  {
-    bReturn = RenameLocalTimer(tag, strNewName);
-  }
-  return bReturn;
 }
 
 bool CPVRTimers::UpdateTimer(const std::shared_ptr<CPVRTimerInfoTag>& tag)
@@ -1081,21 +1089,6 @@ bool CPVRTimers::DeleteLocalTimer(const std::shared_ptr<CPVRTimerInfoTag>& tag, 
     lock.Leave();
     NotifyTimersEvent();
   }
-
-  return bReturn;
-}
-
-bool CPVRTimers::RenameLocalTimer(const std::shared_ptr<CPVRTimerInfoTag>& tag, const std::string& strNewName)
-{
-  {
-    CSingleLock lock(m_critSection);
-    tag->m_strTitle = strNewName;
-  }
-  // no need to re-create timer and children. changed timer title does not invalidate any children.
-  bool bReturn = !!PersistAndUpdateLocalTimer(tag, nullptr);
-
-  if (bReturn)
-    NotifyTimersEvent();
 
   return bReturn;
 }

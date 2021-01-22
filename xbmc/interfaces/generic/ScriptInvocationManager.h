@@ -62,7 +62,7 @@ public:
   * \return -1 if an error occurred, otherwise the ID of the script
   */
   int ExecuteAsync(const std::string& script,
-                   LanguageInvokerPtr languageInvoker,
+                   const LanguageInvokerPtr& languageInvoker,
                    const ADDON::AddonPtr& addon = ADDON::AddonPtr(),
                    const std::vector<std::string>& arguments = std::vector<std::string>(),
                    bool reuseable = false,
@@ -107,13 +107,19 @@ public:
   * \return -1 if an error occurred, 0 if the script terminated or ETIMEDOUT if the given timeout expired
   */
   int ExecuteSync(const std::string& script,
-                  LanguageInvokerPtr languageInvoker,
+                  const LanguageInvokerPtr& languageInvoker,
                   const ADDON::AddonPtr& addon = ADDON::AddonPtr(),
                   const std::vector<std::string>& arguments = std::vector<std::string>(),
                   uint32_t timeoutMs = 0,
                   bool waitShutdown = false);
   bool Stop(int scriptId, bool wait = false);
   bool Stop(const std::string &scriptPath, bool wait = false);
+
+  /*!
+   *\brief Stop all running scripts
+   *\param wait if kodi should wait for each script to finish (default false)
+  */
+  void StopRunningScripts(bool wait = false);
 
   bool IsRunning(int scriptId) const;
   bool IsRunning(const std::string& scriptPath) const;

@@ -10,7 +10,7 @@
 
 #include "Application.h"
 #include "ServiceBroker.h"
-#include "addons/binary-addons/AddonDll.h"
+#include "addons/AddonManager.h"
 #include "guilib/GUITexture.h"
 #include "utils/Color.h"
 #include "windowing/GraphicContext.h"
@@ -37,7 +37,8 @@ void CGUIWindowScreensaverDim::UpdateVisibility()
     {
       m_visible = true;
       ADDON::AddonPtr info;
-      CServiceBroker::GetAddonMgr().GetAddon(usedId, info, ADDON::ADDON_SCREENSAVER);
+      CServiceBroker::GetAddonMgr().GetAddon(usedId, info, ADDON::ADDON_SCREENSAVER,
+                                             ADDON::OnlyEnabled::YES);
       if (info && !info->GetSetting("level").empty())
         m_newDimLevel = 100.0f - (float)atof(info->GetSetting("level").c_str());
       else

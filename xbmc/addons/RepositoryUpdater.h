@@ -57,7 +57,7 @@ public:
   CDateTime LastUpdated() const;
 
 
-  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override;
 
   struct RepositoryUpdated { };
 
@@ -74,6 +74,8 @@ private:
   void OnTimeout() override;
 
   void OnEvent(const ADDON::AddonEvent& event);
+
+  CDateTime ClosestNextCheck() const;
 
   CCriticalSection m_criticalSection;
   CTimer m_timer;

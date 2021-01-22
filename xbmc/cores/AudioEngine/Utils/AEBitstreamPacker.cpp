@@ -140,7 +140,7 @@ void CAEBitstreamPacker::PackTrueHD(CAEStreamInfo &info, uint8_t* data, int size
   static const uint8_t mat_middle_code[12] = { 0xC3, 0xC1, 0x42, 0x49, 0x3B, 0xFA, 0x82, 0x83, 0x49, 0x80, 0x77, 0xE0 };
   static const uint8_t mat_end_code   [16] = { 0xC3, 0xC2, 0xC0, 0xC4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x97, 0x11 };
 
-  /* create the buffer if it doesnt already exist */
+  /* create the buffer if it doesn't already exist */
   if (!m_trueHD)
   {
     m_trueHD    = new uint8_t[MAT_FRAME_SIZE];
@@ -166,13 +166,13 @@ void CAEBitstreamPacker::PackTrueHD(CAEStreamInfo &info, uint8_t* data, int size
 
   int maxSize = TRUEHD_FRAME_OFFSET;
   if (m_trueHDPos == 0)
-    maxSize -= sizeof(mat_start_code) + BURST_HEADER_SIZE;
+    maxSize -= static_cast<int>(sizeof(mat_start_code)) + BURST_HEADER_SIZE;
   else if (m_trueHDPos == 11)
     maxSize -= -MAT_MIDDLE_CODE_OFFSET;
   else if (m_trueHDPos == 12)
-    maxSize -= sizeof(mat_middle_code) + MAT_MIDDLE_CODE_OFFSET;
+    maxSize -= static_cast<int>(sizeof(mat_middle_code)) + MAT_MIDDLE_CODE_OFFSET;
   else if (m_trueHDPos == 23)
-    maxSize -= sizeof(mat_end_code) + (24 * TRUEHD_FRAME_OFFSET - MAT_FRAME_SIZE);
+    maxSize -= static_cast<int>(sizeof(mat_end_code)) + (24 * TRUEHD_FRAME_OFFSET - MAT_FRAME_SIZE);
 
   if (size > maxSize)
   {

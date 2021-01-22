@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #   Copyright (C) 2008-2013 Team XBMC
@@ -155,11 +155,11 @@ def process_keys(remote, xbmc):
             return 2
         time.sleep(2)
 
-        # some other read exception occured, so raise it
+        # some other read exception occurred, so raise it
         raise e
 
     if datalen == 13:
-        keycode = data.encode("hex")[10:12]
+        keycode = data.hex()[10:12]
         if keycode == "ff":
             xbmc.release_button()
             return done

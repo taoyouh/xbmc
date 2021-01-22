@@ -105,7 +105,8 @@ namespace VIDEO
       m_bCanInterrupt = true;
 
       CLog::Log(LOGINFO, "VideoInfoScanner: Starting scan ..");
-      CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary, "xbmc", "OnScanStarted");
+      CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary,
+                                                         "OnScanStarted");
 
       // Database operations should not be canceled
       // using Interrupt() while scanning as it could
@@ -165,7 +166,8 @@ namespace VIDEO
     }
 
     m_bRunning = false;
-    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary, "xbmc", "OnScanFinished");
+    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary,
+                                                       "OnScanFinished");
 
     if (m_handle)
       m_handle->MarkFinished();
@@ -592,14 +594,14 @@ namespace VIDEO
       movieTitle = tag->GetTitle();
       movieYear = tag->GetYear(); // movieYear is expected to be >= 0
     }
-    if (pURL && !pURL->m_url.empty())
+    if (pURL && pURL->HasUrls())
       url = *pURL;
     else if ((retVal = FindVideo(movieTitle, movieYear, info2, url, pDlgProgress)) <= 0)
       return retVal < 0 ? INFO_CANCELLED : INFO_NOT_FOUND;
 
     CLog::Log(LOGDEBUG,
               "VideoInfoScanner: Fetching url '%s' using %s scraper (content: '%s')",
-              url.m_url[0].m_url.c_str(), info2->Name().c_str(),
+              url.GetFirstThumbUrl(), info2->Name().c_str(),
               TranslateContent(info2->Content()).c_str());
 
     long lResult = -1;
@@ -676,14 +678,14 @@ namespace VIDEO
       movieTitle = tag->GetTitle();
       movieYear = tag->GetYear(); // movieYear is expected to be >= 0
     }
-    if (pURL && !pURL->m_url.empty())
+    if (pURL && pURL->HasUrls())
       url = *pURL;
     else if ((retVal = FindVideo(movieTitle, movieYear, info2, url, pDlgProgress)) <= 0)
       return retVal < 0 ? INFO_CANCELLED : INFO_NOT_FOUND;
 
     CLog::Log(LOGDEBUG,
               "VideoInfoScanner: Fetching url '%s' using %s scraper (content: '%s')",
-              url.m_url[0].m_url.c_str(), info2->Name().c_str(),
+              url.GetFirstThumbUrl(), info2->Name().c_str(),
               TranslateContent(info2->Content()).c_str());
 
     if (GetDetails(pItem, url, info2,
@@ -755,14 +757,14 @@ namespace VIDEO
       movieTitle = tag->GetTitle();
       movieYear = tag->GetYear(); // movieYear is expected to be >= 0
     }
-    if (pURL && !pURL->m_url.empty())
+    if (pURL && pURL->HasUrls())
       url = *pURL;
     else if ((retVal = FindVideo(movieTitle, movieYear, info2, url, pDlgProgress)) <= 0)
       return retVal < 0 ? INFO_CANCELLED : INFO_NOT_FOUND;
 
     CLog::Log(LOGDEBUG,
               "VideoInfoScanner: Fetching url '%s' using %s scraper (content: '%s')",
-              url.m_url[0].m_url.c_str(), info2->Name().c_str(),
+              url.GetFirstThumbUrl(), info2->Name().c_str(),
               TranslateContent(info2->Content()).c_str());
 
     if (GetDetails(pItem, url, info2,
@@ -1407,7 +1409,8 @@ namespace VIDEO
     data["added"] = true;
     if (m_bRunning)
       data["transaction"] = true;
-    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary, "xbmc", "OnUpdate", itemCopy, data);
+    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::VideoLibrary, "OnUpdate",
+                                                       itemCopy, data);
     return lResult;
   }
 
@@ -1445,6 +1448,7 @@ namespace VIDEO
     if (path.empty())
       return "";
     path = URIUtils::AddFileToFolder(path, CUtil::MakeLegalFileName(setTitle, LEGAL_WIN32_COMPAT));
+    URIUtils::AddSlashAtEnd(path);
     CLog::Log(LOGDEBUG,
         "VideoInfoScanner: Looking for local artwork for movie set '{}' in folder '{}'",
         setTitle,
@@ -1452,10 +1456,11 @@ namespace VIDEO
     return CDirectory::Exists(path) ? path : "";
   }
 
-  void CVideoInfoScanner::GetLocalMovieSetArtwork(CGUIListItem::ArtMap& art,
-      const std::vector<std::string>& artTypes, const std::string& setTitle)
+  void CVideoInfoScanner::AddLocalItemArtwork(CGUIListItem::ArtMap& itemArt,
+    const std::vector<std::string>& wantedArtTypes, const std::string& itemPath,
+    bool addAll, bool exactName)
   {
-    std::string path = GetMovieSetInfoFolder(setTitle);
+    std::string path = URIUtils::GetDirectory(itemPath);
     if (path.empty())
       return;
 
@@ -1464,26 +1469,57 @@ namespace VIDEO
         CServiceBroker::GetFileExtensionProvider().GetPictureExtensions(),
         DIR_FLAG_NO_FILE_DIRS | DIR_FLAG_READ_CACHE | DIR_FLAG_NO_FILE_INFO);
 
+    std::string baseFilename = URIUtils::GetFileName(itemPath);
+    if (!baseFilename.empty())
+    {
+      URIUtils::RemoveExtension(baseFilename);
+      baseFilename.append("-");
+    }
+
     for (const auto& artFile : availableArtFiles)
     {
       std::string candidate = URIUtils::GetFileName(artFile->GetPath());
+
+      bool matchesFilename =
+        !baseFilename.empty() && StringUtils::StartsWith(candidate, baseFilename);
+      if (!baseFilename.empty() && !matchesFilename)
+        continue;
+
+      if (matchesFilename)
+        candidate.erase(0, baseFilename.length());
       URIUtils::RemoveExtension(candidate);
-      for (const auto& artType : artTypes)
+      StringUtils::ToLower(candidate);
+
+      // move 'folder' to thumb / poster / banner based on aspect ratio
+      // if such artwork doesn't already exist
+      if (!matchesFilename && StringUtils::EqualsNoCase(candidate, "folder") &&
+        !CVideoThumbLoader::IsArtTypeInWhitelist("folder", wantedArtTypes, exactName))
       {
-        if (!StringUtils::StartsWith(artType, "set."))
-          continue;
-        std::string realType = artType.substr(4);
-        if (StringUtils::EqualsNoCase(candidate, realType))
+        // cache the image to determine sizing
+        CTextureDetails details;
+        if (CTextureCache::GetInstance().CacheImage(artFile->GetPath(), details))
         {
-          art[artType] = artFile->GetPath();
-          break;
+          candidate = GetArtTypeFromSize(details.width, details.height);
+          if (itemArt.find(candidate) != itemArt.end())
+            continue;
         }
+      }
+
+      if ((addAll && CVideoThumbLoader::IsValidArtType(candidate)) ||
+        CVideoThumbLoader::IsArtTypeInWhitelist(candidate, wantedArtTypes, exactName))
+      {
+        itemArt[candidate] = artFile->GetPath();
       }
     }
   }
 
   void CVideoInfoScanner::GetArtwork(CFileItem *pItem, const CONTENT_TYPE &content, bool bApplyToDir, bool useLocal, const std::string &actorArtPath)
   {
+    int artLevel = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(
+        CSettings::SETTING_VIDEOLIBRARY_ARTWORK_LEVEL);
+    if (artLevel == CSettings::VIDEOLIBRARY_ARTWORK_LEVEL_NONE)
+      return;
+
     CVideoInfoTag &movieDetails = *pItem->GetVideoInfoTag();
     movieDetails.m_fanart.Unpack();
     movieDetails.m_strPictureURL.Parse();
@@ -1491,41 +1527,43 @@ namespace VIDEO
     CGUIListItem::ArtMap art = pItem->GetArt();
 
     // get and cache thumb images
-    std::vector<std::string> artTypes = CVideoThumbLoader::GetArtTypes(ContentToMediaType(content, pItem->m_bIsFolder));
-    bool lookForThumb = find(artTypes.begin(), artTypes.end(), "thumb") == artTypes.end() &&
-                        art.find("thumb") == art.end();
+    std::string mediaType = ContentToMediaType(content, pItem->m_bIsFolder);
+    std::vector<std::string> artTypes = CVideoThumbLoader::GetArtTypes(mediaType);
     bool moviePartOfSet = content == CONTENT_MOVIES && !movieDetails.m_set.title.empty();
+    std::vector<std::string> movieSetArtTypes;
     if (moviePartOfSet)
     {
-      for (std::string artType : CVideoThumbLoader::GetArtTypes(MediaTypeVideoCollection))
+      movieSetArtTypes = CVideoThumbLoader::GetArtTypes(MediaTypeVideoCollection);
+      for (const std::string& artType : movieSetArtTypes)
         artTypes.push_back("set." + artType);
     }
+    bool addAll = artLevel == CSettings::VIDEOLIBRARY_ARTWORK_LEVEL_ALL;
+    bool exactName = artLevel == CSettings::VIDEOLIBRARY_ARTWORK_LEVEL_BASIC;
     // find local art
     if (useLocal)
     {
-      for (std::vector<std::string>::const_iterator i = artTypes.begin(); i != artTypes.end(); ++i)
+      if (!pItem->SkipLocalArt())
       {
-        if (art.find(*i) == art.end())
+        if (bApplyToDir && (content == CONTENT_MOVIES || content == CONTENT_MUSICVIDEOS))
         {
-          std::string image = CVideoThumbLoader::GetLocalArt(*pItem, *i, bApplyToDir);
-          if (!image.empty())
-            art.insert(std::make_pair(*i, image));
+          std::string filename = pItem->GetLocalArtBaseFilename();
+          std::string directory = URIUtils::GetDirectory(filename);
+          if (filename != directory)
+            AddLocalItemArtwork(art, artTypes, directory, addAll, exactName);
         }
+        AddLocalItemArtwork(art, artTypes, pItem->GetLocalArtBaseFilename(), addAll, exactName);
       }
+
       if (moviePartOfSet)
-        GetLocalMovieSetArtwork(art, artTypes, movieDetails.m_set.title);
-      // find and classify the local thumb (backcompat) if available
-      if (lookForThumb)
       {
-        std::string image = CVideoThumbLoader::GetLocalArt(*pItem, "thumb", bApplyToDir);
-        if (!image.empty())
-        { // cache the image and determine sizing
-          CTextureDetails details;
-          if (CTextureCache::GetInstance().CacheImage(image, details))
+        std::string movieSetInfoPath = GetMovieSetInfoFolder(movieDetails.m_set.title);
+        if (!movieSetInfoPath.empty())
+        {
+          CGUIListItem::ArtMap movieSetArt;
+          AddLocalItemArtwork(movieSetArt, movieSetArtTypes, movieSetInfoPath, addAll, exactName);
+          for (const auto& artItem : movieSetArt)
           {
-            std::string type = GetArtTypeFromSize(details.width, details.height);
-            if (art.find(type) == art.end())
-              art.insert(std::make_pair(type, image));
+            art["set." + artItem.first] = artItem.second;
           }
         }
       }
@@ -1536,7 +1574,8 @@ namespace VIDEO
     {
       for (auto& it : pItem->GetVideoInfoTag()->m_coverArt)
       {
-        if (std::find(artTypes.begin(), artTypes.end(), it.m_type) != artTypes.end() && art.find(it.m_type) == art.end())
+        if ((addAll || CVideoThumbLoader::IsArtTypeInWhitelist(it.m_type, artTypes, exactName)) &&
+          art.find(it.m_type) == art.end())
         {
           std::string thumb = CTextureUtils::GetWrappedImageURL(pItem->GetPath(),
                                                                 "video_" + it.m_type);
@@ -1546,7 +1585,8 @@ namespace VIDEO
     }
 
     // add online fanart (treated separately due to it being stored in m_fanart)
-    if (find(artTypes.begin(), artTypes.end(), "fanart") != artTypes.end() && art.find("fanart") == art.end())
+    if ((addAll || CVideoThumbLoader::IsArtTypeInWhitelist("fanart", artTypes, exactName)) &&
+      art.find("fanart") == art.end())
     {
       std::string fanart = pItem->GetVideoInfoTag()->m_fanart.GetImageURL();
       if (!fanart.empty())
@@ -1554,23 +1594,29 @@ namespace VIDEO
     }
 
     // add online art
-    for (const auto& url : pItem->GetVideoInfoTag()->m_strPictureURL.m_url)
+    for (const auto& url : pItem->GetVideoInfoTag()->m_strPictureURL.GetUrls())
     {
-      if (url.m_type != CScraperUrl::URLTYPES::URL_TYPE_GENERAL)
+      if (url.m_type != CScraperUrl::UrlType::General)
         continue;
       std::string aspect = url.m_aspect;
       if (aspect.empty())
         // Backward compatibility with Kodi 11 Eden NFO files
-        aspect = ContentToMediaType(content, pItem->m_bIsFolder) == MediaTypeEpisode ? "thumb" : "poster";
-      if (find(artTypes.begin(), artTypes.end(), aspect) == artTypes.end() || art.find(aspect) != art.end())
-        continue;
-      std::string image = GetImage(url, pItem->GetPath());
-      if (!image.empty())
-        art.insert(std::make_pair(aspect, image));
+        aspect = mediaType == MediaTypeEpisode ? "thumb" : "poster";
+
+      if ((addAll || CVideoThumbLoader::IsArtTypeInWhitelist(aspect, artTypes, exactName)) &&
+        art.find(aspect) == art.end())
+      {
+        std::string image = GetImage(url, pItem->GetPath());
+        if (!image.empty())
+          art.insert(std::make_pair(aspect, image));
+      }
     }
 
-    for (CGUIListItem::ArtMap::const_iterator i = art.begin(); i != art.end(); ++i)
-      CTextureCache::GetInstance().BackgroundCacheImage(i->second);
+    for (const auto& artType : artTypes)
+    {
+      if (art.find(artType) != art.end())
+        CTextureCache::GetInstance().BackgroundCacheImage(art[artType]);
+    }
 
     pItem->SetArt(art);
 
@@ -1584,10 +1630,9 @@ namespace VIDEO
 
   std::string CVideoInfoScanner::GetImage(const CScraperUrl::SUrlEntry &image, const std::string& itemPath)
   {
-    std::string thumb = CScraperUrl::GetThumbURL(image);
-    if (!thumb.empty() &&
-      thumb.find("/") == std::string::npos &&
-      thumb.find("\\") == std::string::npos)
+    std::string thumb = CScraperUrl::GetThumbUrl(image);
+    if (!thumb.empty() && thumb.find('/') == std::string::npos &&
+        thumb.find('\\') == std::string::npos)
     {
       std::string strPath = URIUtils::GetDirectory(itemPath);
       thumb = URIUtils::AddFileToFolder(strPath, thumb);
@@ -1649,7 +1694,7 @@ namespace VIDEO
       // handle .nfo files
       CInfoScanner::INFO_TYPE result=CInfoScanner::NO_NFO;
       CScraperUrl scrUrl;
-      ScraperPtr info(scraper);
+      const ScraperPtr& info(scraper);
       std::unique_ptr<IVideoInfoTagLoader> loader;
       if (useLocal)
       {
@@ -1679,7 +1724,7 @@ namespace VIDEO
         if (!showInfo.m_strEpisodeGuide.empty())
         {
           CScraperUrl url;
-          url.ParseEpisodeGuide(showInfo.m_strEpisodeGuide);
+          url.ParseAndAppendUrlsFromEpisodeGuide(showInfo.m_strEpisodeGuide);
 
           if (pDlgProgress)
           {
@@ -1729,7 +1774,8 @@ namespace VIDEO
           matches.push_back(*guide);
           continue;
         }
-        if (!guide->cScraperUrl.strTitle.empty() && StringUtils::EqualsNoCase(guide->cScraperUrl.strTitle, file->strTitle))
+        if (!guide->cScraperUrl.GetTitle().empty() &&
+            StringUtils::EqualsNoCase(guide->cScraperUrl.GetTitle(), file->strTitle))
         {
           bFound = true;
           break;
@@ -1765,8 +1811,10 @@ namespace VIDEO
           std::vector<std::string> titles;
           for (guide = candidates->begin(); guide != candidates->end(); ++guide)
           {
-            StringUtils::ToLower(guide->cScraperUrl.strTitle);
-            titles.push_back(guide->cScraperUrl.strTitle);
+            auto title = guide->cScraperUrl.GetTitle();
+            StringUtils::ToLower(title);
+            guide->cScraperUrl.SetTitle(title);
+            titles.push_back(title);
           }
 
           double matchscore;
@@ -1817,8 +1865,8 @@ namespace VIDEO
   {
     CVideoInfoTag movieDetails;
 
-    if (m_handle && !url.strTitle.empty())
-      m_handle->SetText(url.strTitle);
+    if (m_handle && !url.GetTitle().empty())
+      m_handle->SetText(url.GetTitle());
 
     CVideoInfoDownloader imdb(scraper);
     bool ret = imdb.GetDetails(url, movieDetails, pDialog);
@@ -1828,7 +1876,7 @@ namespace VIDEO
       if (loader)
         loader->Load(movieDetails, true);
 
-      if (m_handle && url.strTitle.empty())
+      if (m_handle && url.GetTitle().empty())
         m_handle->SetText(movieDetails.m_strTitle);
 
       if (pDialog)
@@ -1962,16 +2010,21 @@ namespace VIDEO
   void CVideoInfoScanner::GetSeasonThumbs(const CVideoInfoTag &show,
       std::map<int, std::map<std::string, std::string>> &seasonArt, const std::vector<std::string> &artTypes, bool useLocal)
   {
+    int artLevel = CServiceBroker::GetSettingsComponent()->GetSettings()->
+      GetInt(CSettings::SETTING_VIDEOLIBRARY_ARTWORK_LEVEL);
+    bool addAll = artLevel == CSettings::VIDEOLIBRARY_ARTWORK_LEVEL_ALL;
+    bool exactName = artLevel == CSettings::VIDEOLIBRARY_ARTWORK_LEVEL_BASIC;
     if (useLocal)
     {
-      bool lookForThumb = find(artTypes.begin(), artTypes.end(), "thumb") == artTypes.end();
-
       // find the maximum number of seasons we have local thumbs for
       int maxSeasons = 0;
       CFileItemList items;
-      CDirectory::GetDirectory(show.m_strPath, items, ".png|.jpg|.tbn", DIR_FLAG_NO_FILE_DIRS | DIR_FLAG_NO_FILE_INFO);
+      std::string extensions = CServiceBroker::GetFileExtensionProvider().GetPictureExtensions();
+      CDirectory::GetDirectory(show.m_strPath, items, extensions,
+        DIR_FLAG_NO_FILE_DIRS | DIR_FLAG_READ_CACHE | DIR_FLAG_NO_FILE_INFO);
+      extensions.erase(std::remove(extensions.begin(), extensions.end(), '.'), extensions.end());
       CRegExp reg;
-      if (items.Size() && reg.RegComp("season([0-9]+)(-[a-z]+)?\\.(tbn|jpg|png)"))
+      if (items.Size() && reg.RegComp("season([0-9]+)(-[a-z0-9]+)?\\.(" + extensions + ")"))
       {
         for (const auto& item : items)
         {
@@ -1999,47 +2052,30 @@ namespace VIDEO
           basePath = "season-specials";
         else
           basePath = StringUtils::Format("season%02i", season);
-        CFileItem artItem(URIUtils::AddFileToFolder(show.m_strPath, basePath), false);
 
-        for (std::vector<std::string>::const_iterator i = artTypes.begin(); i != artTypes.end(); ++i)
-        {
-          std::string image = CVideoThumbLoader::GetLocalArt(artItem, *i, false);
-          if (!image.empty())
-            art.insert(std::make_pair(*i, image));
-        }
-        // find and classify the local thumb (backcompat) if available
-        if (lookForThumb)
-        {
-          std::string image = CVideoThumbLoader::GetLocalArt(artItem, "thumb", false);
-          if (!image.empty())
-          { // cache the image and determine sizing
-            CTextureDetails details;
-            if (CTextureCache::GetInstance().CacheImage(image, details))
-            {
-              std::string type = GetArtTypeFromSize(details.width, details.height);
-              if (art.find(type) == art.end())
-                art.insert(std::make_pair(type, image));
-            }
-          }
-        }
+        AddLocalItemArtwork(art, artTypes,
+          URIUtils::AddFileToFolder(show.m_strPath, basePath),
+          addAll, exactName);
 
         seasonArt[season] = art;
       }
     }
     // add online art
-    for (const auto& url : show.m_strPictureURL.m_url)
+    for (const auto& url : show.m_strPictureURL.GetUrls())
     {
-      if (url.m_type != CScraperUrl::URLTYPES::URL_TYPE_SEASON)
+      if (url.m_type != CScraperUrl::UrlType::Season)
         continue;
       std::string aspect = url.m_aspect;
       if (aspect.empty())
         aspect = "thumb";
       std::map<std::string, std::string>& art = seasonArt[url.m_season];
-      if (find(artTypes.begin(), artTypes.end(), aspect) == artTypes.end() || art.find(aspect) != art.end())
-        continue;
-      std::string image = CScraperUrl::GetThumbURL(url);
-      if (!image.empty())
-        art.insert(std::make_pair(aspect, image));
+      if ((addAll || CVideoThumbLoader::IsArtTypeInWhitelist(aspect, artTypes, exactName)) &&
+        art.find(aspect) == art.end())
+      {
+        std::string image = CScraperUrl::GetThumbUrl(url);
+        if (!image.empty())
+          art.insert(std::make_pair(aspect, image));
+      }
     }
   }
 
@@ -2070,8 +2106,8 @@ namespace VIDEO
             break;
           }
         }
-        if (i->thumb.empty() && !i->thumbUrl.GetFirstThumb().m_url.empty())
-          i->thumb = CScraperUrl::GetThumbURL(i->thumbUrl.GetFirstThumb());
+        if (i->thumb.empty() && !i->thumbUrl.GetFirstUrlByType().m_url.empty())
+          i->thumb = CScraperUrl::GetThumbUrl(i->thumbUrl.GetFirstUrlByType());
         if (!i->thumb.empty())
           CTextureCache::GetInstance().BackgroundCacheImage(i->thumb);
       }

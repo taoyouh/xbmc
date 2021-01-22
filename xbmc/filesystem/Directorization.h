@@ -51,8 +51,8 @@ namespace XFILE
     if (url.Get().empty() || entries.empty())
       return;
 
-    std::string options = url.GetOptions();
-    std::string filePath = url.GetFileName();
+    const std::string& options = url.GetOptions();
+    const std::string& filePath = url.GetFileName();
 
     CURL baseUrl(url);
     baseUrl.SetOptions(""); // delete options to have a clean path to add stuff too
@@ -75,6 +75,11 @@ namespace XFILE
 
       // skip the requested entry
       if (entryFileName == filePath)
+        continue;
+
+      // Disregard Apple Resource Fork data
+      std::size_t found = entryPath.find("__MACOSX");
+      if (found != std::string::npos)
         continue;
 
       std::vector<std::string> pathTokens;

@@ -11,7 +11,6 @@
 #include "BinaryAddonManager.h"
 #include "DllAddon.h"
 #include "addons/Addon.h"
-#include "addons/interfaces/AddonInterfaces.h"
 #include "utils/XMLUtils.h"
 
 // Global addon callback handle classes
@@ -31,23 +30,30 @@ namespace ADDON
  */
 using ADDON_INSTANCE_HANDLER = const void*;
 
+/*!
+ * @brief Information class for use on addon type managers.
+ *
+ * This to query via @ref CAddonDll the manager so that work can be performed.
+ * If there are multiple instances it be harder to be informed about any changes.
+ */
+class CAddonDllInformer
+{
+public:
+  virtual bool IsInUse(const std::string& id) = 0;
+};
+
 class CAddonDll : public CAddon
 {
 public:
   CAddonDll(const AddonInfoPtr& addonInfo, BinaryAddonBasePtr addonBase);
-  explicit CAddonDll(const AddonInfoPtr& addonInfo, TYPE addonType);
+  CAddonDll(const AddonInfoPtr& addonInfo, TYPE addonType);
   ~CAddonDll() override;
-
-  virtual ADDON_STATUS GetStatus();
 
   // Implementation of IAddon via CAddon
   std::string LibPath() const override;
 
   // addon settings
   void SaveSettings() override;
-
-  ADDON_STATUS Create(ADDON_TYPE type, void* funcTable, void* info);
-  void Destroy();
 
   bool DllLoaded(void) const;
 
@@ -100,14 +106,20 @@ public:
    */
   void DestroyInstance(ADDON_INSTANCE_HANDLER instanceClass);
 
+  bool IsInUse() const override;
+  void RegisterInformer(CAddonDllInformer* informer);
   AddonPtr GetRunningInstance() const override;
+
+  void OnPreInstall() override;
+  void OnPostInstall(bool update, bool modal) override;
+  void OnPreUnInstall() override;
+  void OnPostUnInstall() override;
 
   bool Initialized() const { return m_initialized; }
 
 protected:
   static std::string GetDllPath(const std::string& strFileName);
 
-  CAddonInterfaces* m_pHelpers = nullptr;
   std::string m_parentLib;
 
 private:
@@ -127,6 +139,13 @@ private:
    */
   ADDON_STATUS Create(KODI_HANDLE firstKodiInstance);
 
+  /*!
+   * @brief Main addon destroying call function
+   *
+   * This becomes called only one time after the last addon instance becomes destroyed.
+   */
+  void Destroy();
+
   bool CheckAPIVersion(int type);
 
   BinaryAddonBasePtr m_binaryAddonBase = nullptr;
@@ -134,6 +153,7 @@ private:
   bool m_initialized = false;
   bool LoadDll();
   std::map<ADDON_INSTANCE_HANDLER, std::pair<ADDON_TYPE, KODI_HANDLE>> m_usedInstances;
+  CAddonDllInformer* m_informer = nullptr;
 
   virtual ADDON_STATUS TransferSettings();
 
@@ -141,7 +161,7 @@ private:
    * This structure, which is fixed to the addon headers, makes use of the at
    * least supposed parts for the interface.
    * This structure is defined in:
-   * /xbmc/addons/kodi-addon-dev-kit/include/kodi/AddonBase.h
+   * /xbmc/addons/kodi-dev-kit/include/kodi/AddonBase.h
    */
   AddonGlobalInterface m_interface = {0};
 };

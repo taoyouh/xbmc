@@ -43,7 +43,9 @@ namespace MUSIC_UTILS
   \param strType the type of art e.g. "fanart" or "thumb" etc.
   \param strArt art URL, when empty the entry for that type of art is deleted.
   */
-  void UpdateArtJob(const CFileItemPtr pItem, const std::string& strType, const std::string& strArt);
+  void UpdateArtJob(const CFileItemPtr& pItem,
+                    const std::string& strType,
+                    const std::string& strArt);
 
   /*! \brief Show a dialog to allow the selection of user rating.
   \param iSelected the rating to show initially
@@ -55,7 +57,7 @@ namespace MUSIC_UTILS
 \param pItem pointer to song item being rated
 \param userrating the userrating 0 = no rating, 1 to 10
 */
-  void UpdateSongRatingJob(const CFileItemPtr pItem, int userrating);
+  void UpdateSongRatingJob(const CFileItemPtr& pItem, int userrating);
 
   /*! \brief Get the types of art for an artist or album that are to be
   automatically fetched from local files during scanning
@@ -63,4 +65,12 @@ namespace MUSIC_UTILS
   \return vector of art types that are to be fetched during scanning
   */
   std::vector<std::string> GetArtTypesToScan(const MediaType& mediaType);
-}
+
+  /*! \brief Validate string is acceptable as the name of an additional art type
+  - limited length, and ascii alphanumberic charaters only
+  \param potentialArtType [in] potential art type name
+ \return true if the art type is valid
+ */
+  bool IsValidArtType(const std::string& potentialArtType);
+
+  } // namespace MUSIC_UTILS

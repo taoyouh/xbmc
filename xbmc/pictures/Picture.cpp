@@ -20,9 +20,6 @@
 #include "utils/URIUtils.h"
 #include "guilib/Texture.h"
 #include "guilib/imagefactory.h"
-#if defined(TARGET_RASPBERRY_PI)
-#include "cores/omxplayer/OMXImage.h"
-#endif
 
 extern "C" {
 #include <libswscale/swscale.h>
@@ -58,13 +55,6 @@ bool CPicture::GetThumbnailFromSurface(const unsigned char* buffer, int width, i
 bool CPicture::CreateThumbnailFromSurface(const unsigned char *buffer, int width, int height, int stride, const std::string &thumbFile)
 {
   CLog::Log(LOGDEBUG, "cached image '%s' size %dx%d", CURL::GetRedacted(thumbFile).c_str(), width, height);
-  if (URIUtils::HasExtension(thumbFile, ".jpg"))
-  {
-#if defined(TARGET_RASPBERRY_PI)
-    if (COMXImage::CreateThumbnailFromSurface(const_cast<unsigned char*>(buffer), width, height, XB_FMT_A8R8G8B8, stride, thumbFile.c_str()))
-      return true;
-#endif
-  }
 
   unsigned char *thumb = NULL;
   unsigned int thumbsize=0;
@@ -116,9 +106,14 @@ bool CThumbnailWriter::DoWork()
   return success;
 }
 
-bool CPicture::ResizeTexture(const std::string &image, CBaseTexture *texture,
-  uint32_t &dest_width, uint32_t &dest_height, uint8_t* &result, size_t& result_size,
-  CPictureScalingAlgorithm::Algorithm scalingAlgorithm /* = CPictureScalingAlgorithm::NoAlgorithm */)
+bool CPicture::ResizeTexture(const std::string& image,
+                             CTexture* texture,
+                             uint32_t& dest_width,
+                             uint32_t& dest_height,
+                             uint8_t*& result,
+                             size_t& result_size,
+                             CPictureScalingAlgorithm::Algorithm
+                                 scalingAlgorithm /* = CPictureScalingAlgorithm::NoAlgorithm */)
 {
   if (image.empty() || texture == NULL)
     return false;
@@ -190,8 +185,12 @@ bool CPicture::ResizeTexture(const std::string &image, uint8_t *pixels, uint32_t
   return success;
 }
 
-bool CPicture::CacheTexture(CBaseTexture *texture, uint32_t &dest_width, uint32_t &dest_height, const std::string &dest,
-  CPictureScalingAlgorithm::Algorithm scalingAlgorithm /* = CPictureScalingAlgorithm::NoAlgorithm */)
+bool CPicture::CacheTexture(CTexture* texture,
+                            uint32_t& dest_width,
+                            uint32_t& dest_height,
+                            const std::string& dest,
+                            CPictureScalingAlgorithm::Algorithm
+                                scalingAlgorithm /* = CPictureScalingAlgorithm::NoAlgorithm */)
 {
   return CacheTexture(texture->GetPixels(), texture->GetWidth(), texture->GetHeight(), texture->GetPitch(),
                       texture->GetOrientation(), dest_width, dest_height, dest, scalingAlgorithm);
@@ -214,12 +213,13 @@ bool CPicture::CacheTexture(uint8_t *pixels, uint32_t width, uint32_t height, ui
   uint32_t max_height = advancedSettings->m_imageRes;
   if (advancedSettings->m_fanartRes > advancedSettings->m_imageRes)
   { // 16x9 images larger than the fanart res use that rather than the image res
-    if (fabsf(static_cast<float>(width) / static_cast<float>(height) / (16.0f / 9.0f) - 1.0f) <= 0.01f &&
-        height >= advancedSettings->m_fanartRes)
+    if (fabsf(static_cast<float>(width) / static_cast<float>(height) / (16.0f / 9.0f) - 1.0f)
+        <= 0.01f)
     {
-      max_height = advancedSettings->m_fanartRes;
+      max_height = advancedSettings->m_fanartRes; // use height defined in fanartRes
     }
   }
+
   uint32_t max_width = max_height * 16/9;
 
   dest_height = std::min(dest_height, max_height);
@@ -284,7 +284,7 @@ bool CPicture::CreateTiledThumb(const std::vector<std::string> &files, const std
     int y = i / num_across;
     // load in the image
     unsigned int width = tile_width - 2*tile_gap, height = tile_height - 2*tile_gap;
-    CBaseTexture *texture = CTexture::LoadFromFile(files[i], width, height, true);
+    CTexture* texture = CTexture::LoadFromFile(files[i], width, height, true);
     if (texture && texture->GetWidth() && texture->GetHeight())
     {
       GetScale(texture->GetWidth(), texture->GetHeight(), width, height);

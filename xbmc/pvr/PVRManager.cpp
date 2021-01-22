@@ -203,16 +203,19 @@ CPVRManager::~CPVRManager()
   CLog::LogFC(LOGDEBUG, LOGPVR, "PVR Manager instance destroyed");
 }
 
-void CPVRManager::Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char* sender, const char* message, const CVariant& data)
+void CPVRManager::Announce(ANNOUNCEMENT::AnnouncementFlag flag,
+                           const std::string& sender,
+                           const std::string& message,
+                           const CVariant& data)
 {
   if (!IsStarted())
     return;
 
   if ((flag & (ANNOUNCEMENT::GUI)))
   {
-    if (strcmp(message, "OnScreensaverActivated") == 0)
+    if (message == "OnScreensaverActivated")
       m_addons->OnPowerSavingActivated();
-    else if (strcmp(message, "OnScreensaverDeactivated") == 0)
+    else if (message == "OnScreensaverDeactivated")
       m_addons->OnPowerSavingDeactivated();
   }
 }
@@ -294,7 +297,7 @@ std::shared_ptr<CPVRGUIActions> CPVRManager::GUIActions() const
 
 std::shared_ptr<CPVRPlaybackState> CPVRManager::PlaybackState() const
 {
-  CSingleLock lock(m_critSection);
+  // note: m_playbackState is const (only set/reset in ctor/dtor). no need for a lock here.
   return m_playbackState;
 }
 
@@ -306,8 +309,8 @@ CPVREpgContainer& CPVRManager::EpgContainer()
 
 void CPVRManager::Clear()
 {
+  m_playbackState->Clear();
   m_pendingUpdates->Clear();
-  m_epgContainer.Clear();
 
   CSingleLock lock(m_critSection);
 
@@ -316,7 +319,6 @@ void CPVRManager::Clear()
   m_recordings.reset();
   m_channelGroups.reset();
   m_parentalTimer.reset();
-  m_playbackState.reset();
   m_database.reset();
 
   m_bEpgsCreated = false;
@@ -333,7 +335,6 @@ void CPVRManager::ResetProperties()
   m_timers.reset(new CPVRTimers);
   m_guiInfo.reset(new CPVRGUIInfo);
   m_parentalTimer.reset(new CStopWatch);
-  m_playbackState.reset(new CPVRPlaybackState);
 }
 
 void CPVRManager::Init()
@@ -358,7 +359,7 @@ void CPVRManager::Start()
   // StopThread() which can deadlock if the worker thread tries to acquire pvr manager's
   // lock while StopThread() is waiting for the worker to exit. Thus, we introduce another
   // lock here (m_startStopMutex), which only gets hold while starting/restarting pvr manager.
-  Stop();
+  Stop(true);
 
   if (!m_addons->HasCreatedClients())
     return;
@@ -371,7 +372,7 @@ void CPVRManager::Start()
   SetPriority(-1);
 }
 
-void CPVRManager::Stop()
+void CPVRManager::Stop(bool bRestart /* = false */)
 {
   CSingleLock initLock(m_startStopMutex);
 
@@ -380,7 +381,7 @@ void CPVRManager::Stop()
     return;
 
   /* stop playback if needed */
-  if (m_playbackState->IsPlaying())
+  if (!bRestart && m_playbackState->IsPlaying())
   {
     CLog::LogFC(LOGDEBUG, LOGPVR, "Stopping PVR playback");
     CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_STOP);
@@ -391,6 +392,7 @@ void CPVRManager::Stop()
 
   m_addons->Stop();
   m_pendingUpdates->Stop();
+  m_timers->Stop();
   m_epgContainer.Stop();
   m_guiInfo->Stop();
 
@@ -504,8 +506,15 @@ void CPVRManager::Process()
     return;
   }
 
+  // Load EPGs from database.
+  m_epgContainer.Load();
+
+  // Reinit playbackstate
+  m_playbackState->ReInit();
+
   m_guiInfo->Start();
-  m_epgContainer.Start(true);
+  m_epgContainer.Start();
+  m_timers->Start();
   m_pendingUpdates->Start();
 
   SetState(ManagerStateStarted);
@@ -542,7 +551,7 @@ void CPVRManager::Process()
     }
     catch (...)
     {
-      CLog::LogF(LOGERROR, "An error occured while trying to execute the last PVR update job, trying to recover");
+      CLog::LogF(LOGERROR, "An error occurred while trying to execute the last PVR update job, trying to recover");
       bRestart = true;
     }
 
@@ -572,7 +581,8 @@ bool CPVRManager::SetWakeupCommand()
 
       const int iReturn = system(strExecCommand.c_str());
       if (iReturn != 0)
-        CLog::LogF(LOGERROR, "PVR Manager failed to execute wakeup command '%s': %s (%d)", strExecCommand.c_str(), strerror(iReturn), iReturn);
+        CLog::LogF(LOGERROR, "PVR Manager failed to execute wakeup command '{}': {} ({})",
+                   strExecCommand, strerror(iReturn), iReturn);
 
       return iReturn == 0;
     }
@@ -587,12 +597,16 @@ void CPVRManager::OnSleep()
 
   SetWakeupCommand();
 
+  m_epgContainer.OnSystemSleep();
+
   m_addons->OnSystemSleep();
 }
 
 void CPVRManager::OnWake()
 {
   m_addons->OnSystemWake();
+
+  m_epgContainer.OnSystemWake();
 
   PublishEvent(PVREvent::SystemWake);
 
@@ -654,6 +668,7 @@ void CPVRManager::UnloadComponents()
   m_recordings->Unload();
   m_timers->Unload();
   m_channelGroups->Unload();
+  m_epgContainer.Unload();
 }
 
 void CPVRManager::TriggerPlayChannelOnStartup()
@@ -709,14 +724,14 @@ bool CPVRManager::IsCurrentlyParentalLocked(const std::shared_ptr<CPVRChannel>& 
   return bReturn;
 }
 
-void CPVRManager::OnPlaybackStarted(const CFileItemPtr item)
+void CPVRManager::OnPlaybackStarted(const CFileItemPtr& item)
 {
   m_playbackState->OnPlaybackStarted(item);
   m_guiActions->OnPlaybackStarted(item);
   m_epgContainer.OnPlaybackStarted();
 }
 
-void CPVRManager::OnPlaybackStopped(const CFileItemPtr item)
+void CPVRManager::OnPlaybackStopped(const CFileItemPtr& item)
 {
   // Playback ended due to user interaction
   if (m_playbackState->OnPlaybackStopped(item))
@@ -726,7 +741,7 @@ void CPVRManager::OnPlaybackStopped(const CFileItemPtr item)
   m_epgContainer.OnPlaybackStopped();
 }
 
-void CPVRManager::OnPlaybackEnded(const CFileItemPtr item)
+void CPVRManager::OnPlaybackEnded(const CFileItemPtr& item)
 {
   // Playback ended, but not due to user interaction
   OnPlaybackStopped(item);

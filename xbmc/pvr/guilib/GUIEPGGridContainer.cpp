@@ -86,7 +86,8 @@ CGUIEPGGridContainer::CGUIEPGGridContainer(int parentID,
     m_gridHeight(0),
     m_blockSize(0),
     m_analogScrollCount(0),
-    m_guiProgressIndicatorTexture(posX, posY, width, height, progressIndicatorTexture),
+    m_guiProgressIndicatorTexture(
+        CGUITexture::CreateTexture(posX, posY, width, height, progressIndicatorTexture)),
     m_scrollTime(scrollTime ? scrollTime : 1),
     m_programmeScrollLastTime(0),
     m_programmeScrollSpeed(0),
@@ -144,7 +145,7 @@ CGUIEPGGridContainer::CGUIEPGGridContainer(const CGUIEPGGridContainer& other)
     m_gridHeight(other.m_gridHeight),
     m_blockSize(other.m_blockSize),
     m_analogScrollCount(other.m_analogScrollCount),
-    m_guiProgressIndicatorTexture(other.m_guiProgressIndicatorTexture),
+    m_guiProgressIndicatorTexture(other.m_guiProgressIndicatorTexture->Clone()),
     m_lastItem(other.m_lastItem),
     m_lastChannel(other.m_lastChannel),
     m_scrollTime(other.m_scrollTime),
@@ -170,12 +171,12 @@ bool CGUIEPGGridContainer::HasData() const
 void CGUIEPGGridContainer::AllocResources()
 {
   IGUIContainer::AllocResources();
-  m_guiProgressIndicatorTexture.AllocResources();
+  m_guiProgressIndicatorTexture->AllocResources();
 }
 
 void CGUIEPGGridContainer::FreeResources(bool immediately)
 {
-  m_guiProgressIndicatorTexture.FreeResources(immediately);
+  m_guiProgressIndicatorTexture->FreeResources(immediately);
   IGUIContainer::FreeResources(immediately);
 }
 
@@ -325,25 +326,26 @@ void CGUIEPGGridContainer::ProcessProgressIndicator(unsigned int currentTime, CD
 
   if (width > 0 && height > 0)
   {
-    m_guiProgressIndicatorTexture.SetVisible(true);
-    m_guiProgressIndicatorTexture.SetPosition(m_rulerPosX + m_renderOffset.x, m_rulerPosY + m_renderOffset.y);
-    m_guiProgressIndicatorTexture.SetWidth(width);
-    m_guiProgressIndicatorTexture.SetHeight(height);
+    m_guiProgressIndicatorTexture->SetVisible(true);
+    m_guiProgressIndicatorTexture->SetPosition(m_rulerPosX + m_renderOffset.x,
+                                               m_rulerPosY + m_renderOffset.y);
+    m_guiProgressIndicatorTexture->SetWidth(width);
+    m_guiProgressIndicatorTexture->SetHeight(height);
   }
   else
   {
-    m_guiProgressIndicatorTexture.SetVisible(false);
+    m_guiProgressIndicatorTexture->SetVisible(false);
   }
 
-  m_guiProgressIndicatorTexture.Process(currentTime);
+  m_guiProgressIndicatorTexture->Process(currentTime);
 }
 
 void CGUIEPGGridContainer::RenderProgressIndicator()
 {
   if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_rulerPosX, m_rulerPosY, GetProgressIndicatorWidth(), GetProgressIndicatorHeight()))
   {
-    m_guiProgressIndicatorTexture.SetDiffuseColor(m_diffuseColor);
-    m_guiProgressIndicatorTexture.Render();
+    m_guiProgressIndicatorTexture->SetDiffuseColor(m_diffuseColor);
+    m_guiProgressIndicatorTexture->Render();
     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
   }
 }
@@ -1643,16 +1645,23 @@ void CGUIEPGGridContainer::LoadLayout(TiXmlElement* layout)
     m_rulerLayouts.back().LoadLayout(itemElement, GetParentID(), false, m_width, m_height);
     itemElement = itemElement->NextSiblingElement("rulerlayout");
   }
+
+  UpdateLayout();
 }
 
 std::string CGUIEPGGridContainer::GetDescription() const
 {
   CSingleLock lock(m_critSection);
 
-  const std::shared_ptr<CFileItem> item =
-      m_gridModel->GetGridItem(m_channelCursor + m_channelOffset, m_blockCursor + m_blockOffset);
-  if (item)
-    return item->GetLabel();
+  const int channelIndex = m_channelCursor + m_channelOffset;
+  const int blockIndex = m_blockCursor + m_blockOffset;
+
+  if (channelIndex < m_gridModel->ChannelItemsSize() && blockIndex < m_gridModel->GridItemsSize())
+  {
+    const std::shared_ptr<CFileItem> item = m_gridModel->GetGridItem(channelIndex, blockIndex);
+    if (item)
+      return item->GetLabel();
+  }
 
   return {};
 }
@@ -1774,7 +1783,6 @@ void CGUIEPGGridContainer::SetTimelineItems(const std::unique_ptr<CFileItemList>
   {
     CSingleLock lock(m_critSection);
 
-    UpdateLayout();
     iRulerUnit = m_rulerUnit;
     iFirstChannel = m_channelOffset;
     iChannelsPerPage = m_channelsPerPage;
@@ -1860,6 +1868,8 @@ void CGUIEPGGridContainer::UpdateLayout()
       oldProgrammeLayout == m_programmeLayout && oldFocusedProgrammeLayout == m_focusedProgrammeLayout &&
       oldRulerLayout == m_rulerLayout && oldRulerDateLayout == m_rulerDateLayout)
     return; // nothing has changed, so don't update stuff
+
+  CSingleLock lock(m_critSection);
 
   m_channelHeight = m_channelLayout->Size(VERTICAL);
   m_channelWidth = m_channelLayout->Size(HORIZONTAL);

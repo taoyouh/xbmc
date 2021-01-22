@@ -26,7 +26,7 @@ using namespace XFILE;
 
 std::vector<std::function<std::unique_ptr<IScreenshotSurface>()>> CScreenShot::m_screenShotSurfaces;
 
-void CScreenShot::Register(std::function<std::unique_ptr<IScreenshotSurface>()> createFunc)
+void CScreenShot::Register(const std::function<std::unique_ptr<IScreenshotSurface>()>& createFunc)
 {
   m_screenShotSurfaces.emplace_back(createFunc);
 }
@@ -102,7 +102,7 @@ void CScreenShot::TakeScreenshot()
 
   if (!strDir.empty())
   {
-    std::string file = CUtil::GetNextFilename(URIUtils::AddFileToFolder(strDir, "screenshot%03d.png"), 999);
+    std::string file = CUtil::GetNextFilename(URIUtils::AddFileToFolder(strDir, "screenshot%05d.png"), 65535);
 
     if (!file.empty())
     {

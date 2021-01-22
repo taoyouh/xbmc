@@ -24,8 +24,7 @@
 #include "ServiceBroker.h"
 #include "URL.h"
 #include "Util.h"
-#include "addons/binary-addons/BinaryAddonManager.h"
-#include "cores/VideoPlayer/Interface/Addon/InputStreamConstants.h"
+#include "cores/VideoPlayer/Interface/InputStreamConstants.h"
 #include "filesystem/CurlFile.h"
 #include "filesystem/File.h"
 #include "filesystem/IFileTypes.h"
@@ -37,7 +36,7 @@ std::shared_ptr<CDVDInputStream> CDVDFactoryInputStream::CreateInputStream(IVide
 {
   using namespace ADDON;
 
-  std::string file = fileitem.GetDynPath();
+  const std::string& file = fileitem.GetDynPath();
   if (scanforextaudio)
   {
     // find any available external audio tracks
@@ -51,20 +50,21 @@ std::shared_ptr<CDVDInputStream> CDVDFactoryInputStream::CreateInputStream(IVide
     }
   }
 
-  BinaryAddonBaseList addonInfos;
-  CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true /*enabled only*/, ADDON_INPUTSTREAM);
-  for (auto addonInfo : addonInfos)
+  std::vector<AddonInfoPtr> addonInfos;
+  CServiceBroker::GetAddonMgr().GetAddonInfos(addonInfos, true /*enabled only*/, ADDON_INPUTSTREAM);
+  for (const auto& addonInfo : addonInfos)
   {
     if (CInputStreamAddon::Supports(addonInfo, fileitem))
-      return std::shared_ptr<CInputStreamAddon>(new CInputStreamAddon(addonInfo, pPlayer, fileitem));
+    {
+      // Used to inform input stream about special identifier;
+      const std::string instanceId =
+          fileitem.GetProperty(STREAM_PROPERTY_INPUTSTREAM_INSTANCE_ID).asString();
+
+      return std::make_shared<CInputStreamAddon>(addonInfo, pPlayer, fileitem, instanceId);
+    }
   }
 
   if (fileitem.GetProperty(STREAM_PROPERTY_INPUTSTREAM).asString() ==
-      STREAM_PROPERTY_VALUE_INPUTSTREAMFFMPEG)
-    return std::shared_ptr<CDVDInputStreamFFmpeg>(new CDVDInputStreamFFmpeg(fileitem));
-
-  // TODO; Retire for the above instead prior to Matrix release
-  if (fileitem.GetProperty("inputstreamclass").asString() ==
       STREAM_PROPERTY_VALUE_INPUTSTREAMFFMPEG)
     return std::shared_ptr<CDVDInputStreamFFmpeg>(new CDVDInputStreamFFmpeg(fileitem));
 
@@ -105,8 +105,8 @@ std::shared_ptr<CDVDInputStream> CDVDFactoryInputStream::CreateInputStream(IVide
   else if (URIUtils::IsPVRRecording(file))
     return std::shared_ptr<CInputStreamPVRRecording>(new CInputStreamPVRRecording(pPlayer, fileitem));
 #ifdef HAVE_LIBBLURAY
-  else if (fileitem.IsType(".bdmv") || fileitem.IsType(".mpls") 
-          || fileitem.IsType(".bdm") || fileitem.IsType(".mpl") 
+  else if (fileitem.IsType(".bdmv") || fileitem.IsType(".mpls")
+          || fileitem.IsType(".bdm") || fileitem.IsType(".mpl")
           || StringUtils::StartsWithNoCase(file, "bluray:"))
     return std::shared_ptr<CDVDInputStreamBluray>(new CDVDInputStreamBluray(pPlayer, fileitem));
 #endif

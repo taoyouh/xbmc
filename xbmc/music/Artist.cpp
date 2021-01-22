@@ -11,6 +11,7 @@
 #include "ServiceBroker.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/SettingsComponent.h"
+#include "utils/Fanart.h"
 #include "utils/XMLUtils.h"
 
 #include <algorithm>
@@ -55,8 +56,7 @@ void CArtist::MergeScrapedArtist(const CArtist& source, bool override /* = true 
   strDisbanded = source.strDisbanded;
   yearsActive = source.yearsActive;
 
-  thumbURL = source.thumbURL; // Available remote thumbs
-  fanart = source.fanart;  // Available remote fanart
+  thumbURL = source.thumbURL; // Available remote art
   // Current artwork - thumb, fanart etc., to be stored in art table
   if (!source.art.empty())
     art = source.art;
@@ -91,14 +91,14 @@ bool CArtist::Load(const TiXmlElement *artist, bool append, bool prioritise)
   XMLUtils::GetString(artist,      "died", strDied);
   XMLUtils::GetString(artist, "disbanded", strDisbanded);
 
-  size_t iThumbCount = thumbURL.m_url.size();
-  std::string xmlAdd = thumbURL.m_xml;
+  size_t iThumbCount = thumbURL.GetUrls().size();
+  std::string xmlAdd = thumbURL.GetData();
 
   // Available artist thumbs
   const TiXmlElement* thumb = artist->FirstChildElement("thumb");
   while (thumb)
   {
-    thumbURL.ParseElement(thumb);
+    thumbURL.ParseAndAppendUrl(thumb);
     if (prioritise)
     {
       std::string temp;
@@ -108,35 +108,36 @@ bool CArtist::Load(const TiXmlElement *artist, bool append, bool prioritise)
     thumb = thumb->NextSiblingElement("thumb");
   }
   // prefix thumbs from nfos
-  if (prioritise && iThumbCount && iThumbCount != thumbURL.m_url.size())
+  if (prioritise && iThumbCount && iThumbCount != thumbURL.GetUrls().size())
   {
-    rotate(thumbURL.m_url.begin(),
-           thumbURL.m_url.begin()+iThumbCount,
-           thumbURL.m_url.end());
-    thumbURL.m_xml = xmlAdd;
+    auto thumbUrls = thumbURL.GetUrls();
+    rotate(thumbUrls.begin(), thumbUrls.begin() + iThumbCount, thumbUrls.end());
+    thumbURL.SetUrls(thumbUrls);
+    thumbURL.SetData(xmlAdd);
   }
 
   // Discography
   const TiXmlElement* node = artist->FirstChildElement("album");
+  if (node)
+    discography.clear();
   while (node)
   {
-    const TiXmlNode* title = node->FirstChild("title");
-    if (title && title->FirstChild())
+    if (node->FirstChild())
     {
-      std::string strTitle = title->FirstChild()->Value();
-      std::string strYear;
-      const TiXmlNode* year = node->FirstChild("year");
-      if (year && year->FirstChild())
-        strYear = year->FirstChild()->Value();
-      discography.emplace_back(strTitle, strYear);
+      CDiscoAlbum album;
+      XMLUtils::GetString(node, "title", album.strAlbum);
+      XMLUtils::GetString(node, "year", album.strYear);
+      XMLUtils::GetString(node, "musicbrainzreleasegroupid", album.strReleaseGroupMBID);
+      discography.push_back(album);
     }
     node = node->NextSiblingElement("album");
   }
 
-  // Available artist fanart
+  // Support old style <fanart></fanart> for backwards compatibility of old nfo files and scrapers
   const TiXmlElement *fanart2 = artist->FirstChildElement("fanart");
   if (fanart2)
   {
+    CFanart fanart;
     // we prefix to handle mixed-mode nfo's with fanart set
     if (prioritise)
     {
@@ -147,6 +148,9 @@ bool CArtist::Load(const TiXmlElement *artist, bool append, bool prioritise)
     else
       fanart.m_xml << *fanart2;
     fanart.Unpack();
+    // Append fanart to other image URLs
+    for (unsigned int i = 0; i < fanart.GetNumFanarts(); i++)
+      thumbURL.AddParsedUrl(fanart.GetImageURL(i), "fanart", fanart.GetPreviewURL(i));
   }
 
  // Current artwork  - thumb, fanart etc. (the chosen art, not the lists of those available)
@@ -190,11 +194,11 @@ bool CArtist::Save(TiXmlNode *node, const std::string &tag, const std::string& s
   XMLUtils::SetString(artist,                 "biography", strBiography);
   XMLUtils::SetString(artist,                      "died", strDied);
   XMLUtils::SetString(artist,                 "disbanded", strDisbanded);
-  // Available thumbs
-  if (!thumbURL.m_xml.empty())
+  // Available remote art
+  if (thumbURL.HasData())
   {
     CXBMCTinyXML doc;
-    doc.Parse(thumbURL.m_xml);
+    doc.Parse(thumbURL.GetData());
     const TiXmlNode* thumb = doc.FirstChild("thumb");
     while (thumb)
     {
@@ -203,28 +207,16 @@ bool CArtist::Save(TiXmlNode *node, const std::string &tag, const std::string& s
     }
   }
   XMLUtils::SetString(artist,        "path", strPath);
-  // Available fanart
-  if (fanart.m_xml.size())
-  {
-    CXBMCTinyXML doc;
-    doc.Parse(fanart.m_xml);
-    artist->InsertEndChild(*doc.RootElement());
-  }
 
   // Discography
   for (const auto& it : discography)
   {
     // add a <album> tag
-    TiXmlElement cast("album");
-    TiXmlNode *node = artist->InsertEndChild(cast);
-    TiXmlElement title("title");
-    TiXmlNode *titleNode = node->InsertEndChild(title);
-    TiXmlText name(it.first);
-    titleNode->InsertEndChild(name);
-    TiXmlElement year("year");
-    TiXmlNode *yearNode = node->InsertEndChild(year);
-    TiXmlText name2(it.second);
-    yearNode->InsertEndChild(name2);
+    TiXmlElement discoElement("album");
+    TiXmlNode* node = artist->InsertEndChild(discoElement);
+    XMLUtils::SetString(node, "title", it.strAlbum);
+    XMLUtils::SetString(node, "year", it.strYear);
+    XMLUtils::SetString(node, "musicbrainzreleasegroupid", it.strReleaseGroupMBID);
   }
 
   return true;
@@ -233,5 +225,15 @@ bool CArtist::Save(TiXmlNode *node, const std::string &tag, const std::string& s
 void CArtist::SetDateAdded(const std::string& strDateAdded)
 {
   dateAdded.SetFromDBDateTime(strDateAdded);
+}
+
+void CArtist::SetDateUpdated(const std::string& strDateUpdated)
+{
+  dateUpdated.SetFromDBDateTime(strDateUpdated);
+}
+
+void CArtist::SetDateNew(const std::string& strDateNew)
+{
+  dateNew.SetFromDBDateTime(strDateNew);
 }
 

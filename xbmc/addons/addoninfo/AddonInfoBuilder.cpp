@@ -8,6 +8,7 @@
 
 #include "AddonInfoBuilder.h"
 
+#include "CompileInfo.h"
 #include "LangInfo.h"
 #include "addons/addoninfo/AddonType.h"
 #include "filesystem/File.h"
@@ -22,6 +23,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <regex>
 
 namespace
 {
@@ -44,7 +46,7 @@ AddonInfoPtr CAddonInfoBuilder::Generate(const std::string& id, TYPE type)
   }
 
   AddonInfoPtr addon = std::make_shared<CAddonInfo>();
-  addon->m_id = std::move(id);
+  addon->m_id = id;
   addon->m_mainType = type;
   return addon;
 }
@@ -114,7 +116,7 @@ bool CAddonInfoBuilder::ParseXML(const AddonInfoPtr& addon, const TiXmlElement* 
 
   if (!StringUtils::EqualsNoCase(element->Value(), "addon"))
   {
-    CLog::Log(LOGERROR, "CAddonInfoBuilder::{}: file from '{}' doesnt contain <addon>", __FUNCTION__, addonPath);
+    CLog::Log(LOGERROR, "CAddonInfoBuilder::{}: file from '{}' doesn't contain <addon>", __FUNCTION__, addonPath);
     return false;
   }
 
@@ -135,7 +137,7 @@ bool CAddonInfoBuilder::ParseXML(const AddonInfoPtr& addon, const TiXmlElement* 
   addon->m_author = cstring ? cstring : "";
   if (addon->m_id.empty() || addon->m_version.empty())
   {
-    CLog::Log(LOGERROR, "CAddonInfoBuilder::{}: file '{}' doesnt contain required values on <addon ... > id='{}', version='{}'",
+    CLog::Log(LOGERROR, "CAddonInfoBuilder::{}: file '{}' doesn't contain required values on <addon ... > id='{}', version='{}'",
               __FUNCTION__,
               addonPath,
               addon->m_id.empty() ? "missing" : addon->m_id,
@@ -315,10 +317,32 @@ bool CAddonInfoBuilder::ParseXML(const AddonInfoPtr& addon, const TiXmlElement* 
       if (element && element->GetText() != nullptr)
         addon->m_forum = element->GetText();
 
-      /* Parse addon.xml "<broken">...</broken>" */
+      /* Parse addon.xml "<broken">...</broken>"
+       * NOTE: Replaced with <lifecyclestate>, available for backward compatibility */
       element = child->FirstChildElement("broken");
       if (element && element->GetText() != nullptr)
-        addon->m_broken = element->GetText();
+      {
+        addon->m_lifecycleState = AddonLifecycleState::BROKEN;
+        addon->m_lifecycleStateDescription.emplace("en_gb", element->GetText());
+      }
+
+      /* Parse addon.xml "<lifecyclestate">...</lifecyclestate>" */
+      element = child->FirstChildElement("lifecyclestate");
+      if (element && element->GetText() != nullptr)
+      {
+        const char* lang = element->Attribute("type");
+        if (lang)
+        {
+          if (strcmp(lang, "broken") == 0)
+            addon->m_lifecycleState = AddonLifecycleState::BROKEN;
+          else if (strcmp(lang, "deprecated") == 0)
+            addon->m_lifecycleState = AddonLifecycleState::DEPRECATED;
+          else
+            addon->m_lifecycleState = AddonLifecycleState::NORMAL;
+
+          GetTextList(child, "lifecyclestate", addon->m_lifecycleStateDescription);
+        }
+      }
 
       /* Parse addon.xml "<language">...</language>" */
       element = child->FirstChildElement("language");
@@ -394,7 +418,9 @@ bool CAddonInfoBuilder::ParseXML(const AddonInfoPtr& addon, const TiXmlElement* 
   return true;
 }
 
-bool CAddonInfoBuilder::ParseXMLTypes(CAddonType& addonType, AddonInfoPtr info, const TiXmlElement* child)
+bool CAddonInfoBuilder::ParseXMLTypes(CAddonType& addonType,
+                                      const AddonInfoPtr& info,
+                                      const TiXmlElement* child)
 {
   if (child)
   {
@@ -405,7 +431,28 @@ bool CAddonInfoBuilder::ParseXMLTypes(CAddonType& addonType, AddonInfoPtr info, 
     if (library == nullptr)
       library = GetPlatformLibraryName(child);
     if (library != nullptr)
+    {
       addonType.m_libname = library;
+
+      try
+      {
+        // linux is different and has the version number after the suffix
+        static const std::regex libRegex("^.*" +
+                                        CCompileInfo::CCompileInfo::GetSharedLibrarySuffix() +
+                                        "\\.?[0-9]*\\.?[0-9]*\\.?[0-9]*$");
+        if (std::regex_match(library, libRegex))
+        {
+          info->SetBinary(true);
+          CLog::Log(LOGDEBUG, "CAddonInfoBuilder::{}: Binary addon found: {}", __func__,
+                    info->ID());
+        }
+      }
+      catch (const std::regex_error& e)
+      {
+        CLog::Log(LOGERROR, "CAddonInfoBuilder::{}: Regex error caught: {}", __func__,
+                  e.what());
+      }
+    }
 
     if (!ParseXMLExtension(addonType, child))
     {
@@ -534,9 +581,6 @@ const char* CAddonInfoBuilder::GetPlatformLibraryName(const TiXmlElement* elemen
 #elif defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
 #if defined(TARGET_FREEBSD)
   libraryName = element->Attribute("library_freebsd");
-  if (libraryName == nullptr)
-#elif defined(TARGET_RASPBERRY_PI)
-  libraryName = element->Attribute("library_rbpi");
   if (libraryName == nullptr)
 #endif
   libraryName = element->Attribute("library_linux");

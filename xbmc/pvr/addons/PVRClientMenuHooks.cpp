@@ -8,7 +8,7 @@
 
 #include "PVRClientMenuHooks.h"
 
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "addons/kodi-dev-kit/include/kodi/c-api/addon-instance/pvr/pvr_menu_hook.h"
 #include "guilib/LocalizeStrings.h"
 #include "pvr/PVRContextMenus.h"
 #include "utils/log.h"
@@ -26,9 +26,9 @@ CPVRClientMenuHook::CPVRClientMenuHook(const std::string& addonId, const PVR_MEN
       hook.category != PVR_MENUHOOK_TIMER &&
       hook.category != PVR_MENUHOOK_EPG &&
       hook.category != PVR_MENUHOOK_RECORDING &&
-      hook.category != PVR_MENUHOOK_RECORDING &&
+      hook.category != PVR_MENUHOOK_DELETED_RECORDING &&
       hook.category != PVR_MENUHOOK_SETTING)
-    CLog::LogF(LOGERROR, "Unknown PVR_MENUHOOK_CAT value: %d", hook.category);
+    CLog::LogF(LOGERROR, "Unknown PVR_MENUHOOK_CAT value: {}", hook.category);
 }
 
 bool CPVRClientMenuHook::operator ==(const CPVRClientMenuHook& right) const
@@ -113,7 +113,8 @@ void CPVRClientMenuHooks::Clear()
   m_hooks.reset();
 }
 
-std::vector<CPVRClientMenuHook> CPVRClientMenuHooks::GetHooks(std::function<bool(const CPVRClientMenuHook& hook)> function) const
+std::vector<CPVRClientMenuHook> CPVRClientMenuHooks::GetHooks(
+    const std::function<bool(const CPVRClientMenuHook& hook)>& function) const
 {
   std::vector<CPVRClientMenuHook> hooks;
 

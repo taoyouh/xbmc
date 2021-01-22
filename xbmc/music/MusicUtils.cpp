@@ -36,15 +36,16 @@ namespace MUSIC_UTILS
     std::string m_artType;
     std::string m_newArt;
   public:
-    CSetArtJob(const CFileItemPtr item, const std::string& type, const std::string& newArt) :
-      pItem(item),
-      m_artType(type),
-      m_newArt(newArt)
+    CSetArtJob(const CFileItemPtr& item, const std::string& type, const std::string& newArt)
+      : pItem(item), m_artType(type), m_newArt(newArt)
     { }
 
     ~CSetArtJob(void) override = default;
 
-    bool HasSongExtraArtChanged(const CFileItemPtr pSongItem, const std::string& type, const int itemID, CMusicDatabase& db)
+    bool HasSongExtraArtChanged(const CFileItemPtr& pSongItem,
+                                const std::string& type,
+                                const int itemID,
+                                CMusicDatabase& db)
     {
       if (!pSongItem->HasMusicInfoTag())
         return false;
@@ -64,7 +65,7 @@ namespace MUSIC_UTILS
           for (CVariant::const_iterator_array varid = pSongItem->GetProperty("artistid").begin_array();
             varid != pSongItem->GetProperty("artistid").end_array(); varid++)
           {
-            int idArtist = varid->asInteger();
+            int idArtist = static_cast<int>(varid->asInteger());
             result = (itemID == idArtist);
             if (result)
               break;
@@ -99,6 +100,8 @@ namespace MUSIC_UTILS
         db.SetArtForItem(itemID, type, m_artType, m_newArt);
       else
         db.RemoveArtForItem(itemID, type, m_artType);
+      // Artwork changed so set datemodified field for artist, album or song
+      db.SetItemUpdated(itemID, type);
 
       /* Update the art of the songs of the current music playlist.
       Song thumb is often a fallback from the album and fanart is from the artist(s).
@@ -174,25 +177,17 @@ namespace MUSIC_UTILS
     }
   };
 
-  void UpdateArtJob(const CFileItemPtr pItem, const std::string& strType, const std::string& strArt)
+  void UpdateArtJob(const CFileItemPtr& pItem,
+                    const std::string& strType,
+                    const std::string& strArt)
   {
     // Asynchronously update that type of art in the database
     CSetArtJob *job = new CSetArtJob(pItem, strType, strArt);
     CJobManager::GetInstance().AddJob(job, NULL);
   }
 
-  // Add art types required in Kodi
-  void AddHardCodedArtTypes(std::vector<std::string>& artTypes, const CMusicInfoTag& tag)
-  {
-    artTypes.emplace_back("thumb");
-    if (tag.GetType() == MediaTypeArtist)
-    {
-      artTypes.emplace_back("fanart");
-    }
-  }
-
-  // Add art types configured by the user
-  void AddExtendedArtTypes(std::vector<std::string>& artTypes, const CMusicInfoTag& tag)
+  // Add art types required in Kodi and configured by the user
+  void AddHardCodedAndExtendedArtTypes(std::vector<std::string>& artTypes, const CMusicInfoTag& tag)
   {
     for (const auto& artType : GetArtTypesToScan(tag.GetType()))
     {
@@ -253,15 +248,14 @@ namespace MUSIC_UTILS
 
     std::vector<std::string> artTypes;
 
-    AddHardCodedArtTypes(artTypes, tag);
-    AddExtendedArtTypes(artTypes, tag);
+    AddHardCodedAndExtendedArtTypes(artTypes, tag);
     AddCurrentArtTypes(artTypes, tag, db);
     AddMediaTypeArtTypes(artTypes, tag, db);
     AddAvailableArtTypes(artTypes, tag, db);
 
     db.Close();
 
-    for (const auto type : artTypes)
+    for (const auto& type : artTypes)
     {
       CFileItemPtr artitem(new CFileItem(type, false));
       // Localise the names of common types of art
@@ -339,7 +333,7 @@ namespace MUSIC_UTILS
     return -1;
   }
 
-  void UpdateSongRatingJob(const CFileItemPtr pItem, int userrating)
+  void UpdateSongRatingJob(const CFileItemPtr& pItem, int userrating)
   {
     // Asynchronously update the song user rating in music library
     const CMusicInfoTag *tag = pItem->GetMusicInfoTag();
@@ -358,16 +352,34 @@ namespace MUSIC_UTILS
     // Get default types of art that are to be automatically fetched during scanning
     if (mediaType == MediaTypeArtist)
     {
-      arttypes = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_musicArtistExtraArt;
-      arttypes.emplace_back("thumb");
-      arttypes.emplace_back("fanart");
+      arttypes = { "thumb", "fanart" };
+      for (auto& artType : CServiceBroker::GetSettingsComponent()->GetSettings()->GetList(
+        CSettings::SETTING_MUSICLIBRARY_ARTISTART_WHITELIST))
+      {
+        if (find(arttypes.begin(), arttypes.end(), artType.asString()) == arttypes.end())
+          arttypes.emplace_back(artType.asString());
+      }
     }
     else if (mediaType == MediaTypeAlbum)
     {
-      arttypes = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_musicAlbumExtraArt;
-      arttypes.emplace_back("thumb");
+      arttypes = { "thumb" };
+      for (auto& artType :
+        CServiceBroker::GetSettingsComponent()->GetSettings()->GetList(
+          CSettings::SETTING_MUSICLIBRARY_ALBUMART_WHITELIST))
+      {
+        if (find(arttypes.begin(), arttypes.end(), artType.asString()) == arttypes.end())
+          arttypes.emplace_back(artType.asString());
+      }
     }
-
     return arttypes;
   }
-}
+
+  bool IsValidArtType(const std::string& potentialArtType)
+  {
+    // Check length and is ascii
+    return potentialArtType.length() <= 25 &&
+                 std::find_if_not(potentialArtType.begin(), potentialArtType.end(),
+                                  StringUtils::isasciialphanum) == potentialArtType.end();
+  }
+
+  } // namespace MUSIC_UTILS

@@ -11,6 +11,8 @@
 #include "addons/Repository.h"
 #include "addons/addoninfo/AddonInfo.h"
 
+#include <utility>
+
 class TiXmlElement;
 
 namespace ADDON
@@ -40,34 +42,39 @@ public:
     void SetForum(std::string forum) { m_addonInfo->m_forum = std::move(forum); }
     void SetEMail(std::string email) { m_addonInfo->m_email = std::move(email); }
     void SetIcon(std::string icon) { m_addonInfo->m_icon = std::move(icon); }
-    void SetArt(std::string type, std::string value) { m_addonInfo->m_art[type] = value; }
+    void SetArt(const std::string& type, std::string value)
+    {
+      m_addonInfo->m_art[type] = std::move(value);
+    }
     void SetArt(std::map<std::string, std::string> art) { m_addonInfo->m_art = std::move(art); }
     void SetScreenshots(std::vector<std::string> screenshots) { m_addonInfo->m_screenshots = std::move(screenshots); }
     void SetChangelog(std::string changelog) { m_addonInfo->m_changelog.insert(std::pair<std::string, std::string>("unk", std::move(changelog))); }
-    void SetBroken(std::string broken) { m_addonInfo->m_broken = std::move(broken); }
+    void SetLifecycleState(AddonLifecycleState state, std::string description)
+    {
+      m_addonInfo->m_lifecycleState = state;
+      m_addonInfo->m_lifecycleStateDescription.emplace("unk", std::move(description));
+    }
     void SetPath(std::string path) { m_addonInfo->m_path = std::move(path); }
     void SetLibName(std::string libname) { m_addonInfo->m_libname = std::move(libname); }
-    void SetVersion(AddonVersion version) { m_addonInfo->m_version = std::move(version); }
-    void SetMinVersion(AddonVersion minversion) { m_addonInfo->m_minversion = std::move(minversion); }
+    void SetVersion(const AddonVersion& version) { m_addonInfo->m_version = version; }
+    void SetMinVersion(const AddonVersion& minversion) { m_addonInfo->m_minversion = minversion; }
     void SetDependencies(std::vector<DependencyInfo> dependencies) { m_addonInfo->m_dependencies = std::move(dependencies); }
     void SetExtrainfo(InfoMap extrainfo)
     {
       m_addonInfo->m_extrainfo = std::move(extrainfo);
-
-      const auto& it = m_addonInfo->m_extrainfo.find("provides");
-      if (it != m_addonInfo->m_extrainfo.end())
-      {
-        CAddonType addonType(m_addonInfo->m_mainType);
-        addonType.SetProvides(it->second);
-        m_addonInfo->m_types.push_back(addonType);
-      }
     }
-    void SetType(TYPE type) { m_addonInfo->m_mainType = type; }
     void SetInstallDate(const CDateTime& installDate) { m_addonInfo->m_installDate = installDate; }
     void SetLastUpdated(const CDateTime& lastUpdated) { m_addonInfo->m_lastUpdated = lastUpdated; }
     void SetLastUsed(const CDateTime& lastUsed) { m_addonInfo->m_lastUsed = lastUsed; }
     void SetOrigin(std::string origin) { m_addonInfo->m_origin = std::move(origin); }
     void SetPackageSize(uint64_t size) { m_addonInfo->m_packageSize = size; }
+    void SetExtensions(CAddonType addonType)
+    {
+      if (!addonType.GetValue("provides").empty())
+        addonType.SetProvides(addonType.GetValue("provides").asString());
+      m_addonInfo->m_types.push_back(std::move(addonType));
+      m_addonInfo->m_mainType = addonType.m_type;
+    }
 
     const AddonInfoPtr& get() { return m_addonInfo; }
 
@@ -85,7 +92,9 @@ public:
 
 private:
   static bool ParseXML(const AddonInfoPtr& addon, const TiXmlElement* element, const std::string& addonPath, const CRepository::DirInfo& repo = {});
-  static bool ParseXMLTypes(CAddonType& addonType, AddonInfoPtr info, const TiXmlElement* child);
+  static bool ParseXMLTypes(CAddonType& addonType,
+                            const AddonInfoPtr& info,
+                            const TiXmlElement* child);
   static bool ParseXMLExtension(CAddonExtensions& addonExt, const TiXmlElement* element);
   static bool GetTextList(const TiXmlElement* element, const std::string& tag, std::unordered_map<std::string, std::string>& translatedValues);
   static const char* GetPlatformLibraryName(const TiXmlElement* element);

@@ -596,6 +596,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
           m_stats.SetSuspended(true);
           m_state = AE_TOP_CONFIGURED_SUSPEND;
           m_extDeferData = true;
+          m_extSuspended = true;
           return;
         case CActiveAEControlProtocol::DISPLAYLOST:
           if (m_sink.GetDeviceType(m_mode == MODE_PCM ? m_settings.device : m_settings.passthroughdevice) == AE_DEVTYPE_HDMI)
@@ -852,10 +853,13 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
         switch (signal)
         {
         case CActiveAEControlProtocol::DISPLAYRESET:
+          if (m_extSuspended)
+            return;
           CLog::Log(LOGDEBUG,"CActiveAE - display reset event");
           displayReset = true;
         case CActiveAEControlProtocol::INIT:
           m_extError = false;
+          m_extSuspended = false;
           if (!displayReset)
           {
             m_controlPort.PurgeOut(CActiveAEControlProtocol::DEVICECHANGE);
@@ -1378,6 +1382,9 @@ void CActiveAE::Configure(AEAudioFormat *desiredFmt)
         vizFormat.m_channelLayout = AE_CH_LAYOUT_2_0;
         vizFormat.m_dataFormat = AE_FMT_FLOAT;
         vizFormat.m_sampleRate = 44100;
+        vizFormat.m_frames =
+            m_internalFormat.m_frames *
+            (static_cast<float>(vizFormat.m_sampleRate) / m_internalFormat.m_sampleRate);
 
         // input buffers
         m_vizBuffersInput = new CActiveAEBufferPool(m_internalFormat);
@@ -2234,7 +2241,8 @@ bool CActiveAE::RunStages()
                 break;
               else
               {
-                unsigned int samples = static_cast<unsigned int>(buf->pkt->nb_samples);
+                unsigned int samples = static_cast<unsigned int>(buf->pkt->nb_samples) *
+                                       buf->pkt->config.channels / buf->pkt->planes;
                 for (auto& it : m_audioCallback)
                   it->OnAudioData((float*)(buf->pkt->data[0]), samples);
                 buf->Return();
@@ -2726,10 +2734,6 @@ bool CActiveAE::SupportsQualityLevel(enum AEQuality level)
 {
   if (level == AE_QUALITY_LOW || level == AE_QUALITY_MID || level == AE_QUALITY_HIGH)
     return true;
-#if defined(TARGET_RASPBERRY_PI)
-  if (level == AE_QUALITY_GPU)
-    return true;
-#endif
 
   return false;
 }
@@ -2887,7 +2891,7 @@ void CActiveAE::DeviceChange()
   m_controlPort.SendOutMessage(CActiveAEControlProtocol::DEVICECHANGE);
 }
 
-void CActiveAE::DeviceCountChange(std::string driver)
+void CActiveAE::DeviceCountChange(const std::string& driver)
 {
   const char* name = driver.c_str();
   m_controlPort.SendOutMessage(CActiveAEControlProtocol::DEVICECOUNTCHANGE, name,

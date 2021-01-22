@@ -12,7 +12,7 @@
 #include "LanguageHook.h"
 #include "ServiceBroker.h"
 #include "addons/AddonManager.h"
-#include "addons/settings/GUIDialogAddonSettings.h"
+#include "addons/gui/GUIDialogAddonSettings.h"
 #include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
@@ -59,9 +59,11 @@ namespace XBMCAddon
 
       // if we still don't have an id then bail
       if (id.empty())
-        throw AddonException("No valid addon id could be obtained. None was passed and the script wasn't executed in a normal xbmc manner.");
+        throw AddonException("No valid addon id could be obtained. None was passed and the script "
+                             "wasn't executed in a normal Kodi manner.");
 
-      if (!CServiceBroker::GetAddonMgr().GetAddon(id.c_str(), pAddon))
+      if (!CServiceBroker::GetAddonMgr().GetAddon(id.c_str(), pAddon, ADDON_UNKNOWN,
+                                                  OnlyEnabled::YES))
         throw AddonException("Unknown addon id '%s'.", id.c_str());
 
       CServiceBroker::GetAddonMgr().AddToUpdateableAddons(pAddon);

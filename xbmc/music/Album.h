@@ -49,6 +49,7 @@ public:
     strReview.clear();
     strLabel.clear();
     strType.clear();
+    strReleaseStatus.clear();
     strPath.clear();
     fRating = -1;
     iUserrating = -1;
@@ -59,6 +60,8 @@ public:
     bBoxedSet = false;
     iTimesPlayed = 0;
     dateAdded.Reset();
+    dateUpdated.Reset();
+    dateNew.Reset();
     lastPlayed.Reset();
     iTotalDiscs = -1;
     songs.clear();
@@ -66,6 +69,7 @@ public:
     strLastScraped.clear();
     bScrapedMBID = false;
     bArtistSongMerge = false;
+    iAlbumDuration = 0;
   }
 
   /*! \brief Get album artist names from the vector of artistcredits objects
@@ -104,6 +108,8 @@ public:
   std::string GetReleaseType() const;
   void SetReleaseType(const std::string& strReleaseType);
   void SetDateAdded(const std::string& strDateAdded);
+  void SetDateUpdated(const std::string& strDateUpdated);
+  void SetDateNew(const std::string& strDateNew);
   void SetLastPlayed(const std::string& strLastPlayed);
 
   static std::string ReleaseTypeToString(ReleaseType releaseType);
@@ -135,7 +141,7 @@ public:
   bool Load(const TiXmlElement *element, bool append = false, bool prioritise = false);
   bool Save(TiXmlNode *node, const std::string &tag, const std::string& strPath);
 
-  long idAlbum = -1;
+  int idAlbum = -1;
   std::string strAlbum;
   std::string strMusicBrainzAlbumID;
   std::string strReleaseGroupMBID;
@@ -151,6 +157,7 @@ public:
   std::string strReview;
   std::string strLabel;
   std::string strType;
+  std::string strReleaseStatus;
   std::string strPath;
   float fRating = -1;
   int iUserrating = -1;
@@ -160,7 +167,9 @@ public:
   bool bBoxedSet = false;
   bool bCompilation = false;
   int iTimesPlayed = 0;
-  CDateTime dateAdded;
+  CDateTime dateAdded; // From related file creation or modification times, or when (re-)scanned
+  CDateTime dateUpdated; // Time db record Last modified
+  CDateTime dateNew;  // Time db record created
   CDateTime lastPlayed;
   int iTotalDiscs = -1;
   VECSONGS songs;     ///< Local songs
@@ -168,6 +177,7 @@ public:
   std::string strLastScraped;
   bool bScrapedMBID = false;
   bool bArtistSongMerge = false;
+  int iAlbumDuration = 0;
 };
 
 typedef std::vector<CAlbum> VECALBUMS;

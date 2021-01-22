@@ -23,6 +23,7 @@ CROSS_COMPILING=@cross_compiling@
 ARCH_DEFINES=@ARCH_DEFINES@
 NATIVE_ARCH_DEFINES=@NATIVE_ARCH_DEFINES@
 TARGET_PLATFORM=@target_platform@
+RENDER_SYSTEM=@app_rendersystem@
 AAPT=@AAPT@
 DX=@DX@
 ZIPALIGN=@ZIPALIGN@
@@ -92,10 +93,10 @@ STRIP_FOR_BUILD=@STRIP_FOR_BUILD@
 READELF_FOR_BUILD=@READELF_FOR_BUILD@
 OBJDUMP_FOR_BUILD=@OBJDUMP_FOR_BUILD@
 
-NATIVE_CFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
-NATIVE_LDFLAGS=@native_platform_min_version@ -L@prefix@/@tool_dir@/lib
-NATIVE_CPPFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
-NATIVE_CXXFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
+NATIVE_CFLAGS=@host_includes@ -I@prefix@/@tool_dir@/include
+NATIVE_LDFLAGS=@host_includes@ -L@prefix@/@tool_dir@/lib
+NATIVE_CPPFLAGS=@host_includes@ -I@prefix@/@tool_dir@/include
+NATIVE_CXXFLAGS=@host_includes@ -I@prefix@/@tool_dir@/include
 
 
 ifeq ($(CPU), arm64)

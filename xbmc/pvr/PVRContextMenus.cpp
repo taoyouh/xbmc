@@ -64,11 +64,10 @@ namespace PVR
     DECL_CONTEXTMENUITEM(EditTimer);
     DECL_CONTEXTMENUITEM(DeleteTimer);
     DECL_STATICCONTEXTMENUITEM(EditRecording);
-    DECL_STATICCONTEXTMENUITEM(RenameRecording);
     DECL_CONTEXTMENUITEM(DeleteRecording);
     DECL_STATICCONTEXTMENUITEM(UndeleteRecording);
+    DECL_STATICCONTEXTMENUITEM(DeleteWatchedRecordings);
     DECL_CONTEXTMENUITEM(ToggleTimerState);
-    DECL_STATICCONTEXTMENUITEM(RenameTimer);
     DECL_STATICCONTEXTMENUITEM(AddReminder);
 
     class PVRClientMenuHook : public IContextMenuItem
@@ -333,27 +332,6 @@ namespace PVR
     }
 
     ///////////////////////////////////////////////////////////////////////////////
-    // Rename recording
-
-    bool RenameRecording::IsVisible(const CFileItem& item) const
-    {
-      const std::shared_ptr<CPVRRecording> recording = item.GetPVRRecordingInfoTag();
-      if (recording &&
-          !recording->IsDeleted() &&
-          !recording->IsInProgress())
-      {
-        const std::shared_ptr<CPVRClient> client = CServiceBroker::GetPVRManager().GetClient(recording->ClientID());
-        return client && client->GetClientCapabilities().SupportsRecordingsRename();
-      }
-      return false;
-    }
-
-    bool RenameRecording::Execute(const CFileItemPtr& item) const
-    {
-      return CServiceBroker::GetPVRManager().GUIActions()->RenameRecording(item);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
     // Delete recording
 
     std::string DeleteRecording::GetLabel(const CFileItem& item) const
@@ -375,7 +353,7 @@ namespace PVR
       if (item.m_bIsFolder)
       {
         const CPVRRecordingsPath path(item.GetPath());
-        return path.IsValid();
+        return path.IsValid() && !path.IsRecordingsRoot();
       }
 
       return false;
@@ -401,6 +379,23 @@ namespace PVR
     bool UndeleteRecording::Execute(const CFileItemPtr& item) const
     {
       return CServiceBroker::GetPVRManager().GUIActions()->UndeleteRecording(item);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Delete watched recordings
+
+    bool DeleteWatchedRecordings::IsVisible(const CFileItem& item) const
+    {
+      // recordings folder?
+      if (item.m_bIsFolder && !item.IsParentFolder())
+        return CPVRRecordingsPath(item.GetPath()).IsValid();
+
+      return false;
+    }
+
+    bool DeleteWatchedRecordings::Execute(const std::shared_ptr<CFileItem>& item) const
+    {
+      return CServiceBroker::GetPVRManager().GUIActions()->DeleteWatchedRecordings(item);
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -455,13 +450,8 @@ namespace PVR
     bool AddTimerRule::IsVisible(const CFileItem& item) const
     {
       const std::shared_ptr<CPVREpgInfoTag> epg = item.GetEPGInfoTag();
-      if (epg && !epg->IsGapTag() &&
-          !CServiceBroker::GetPVRManager().Timers()->GetTimerForEpgTag(epg))
-      {
-        const std::shared_ptr<CPVRClient> client = CServiceBroker::GetPVRManager().GetClient(item);
-        return client && client->GetClientCapabilities().SupportsTimers();
-      }
-      return false;
+      return (epg && !epg->IsGapTag() &&
+              !CServiceBroker::GetPVRManager().Timers()->GetTimerForEpgTag(epg));
     }
 
     bool AddTimerRule::Execute(const CFileItemPtr& item) const
@@ -568,31 +558,6 @@ namespace PVR
     }
 
     ///////////////////////////////////////////////////////////////////////////////
-    // Rename timer
-
-    bool RenameTimer::IsVisible(const CFileItem& item) const
-    {
-      const std::shared_ptr<CPVRTimerInfoTag> timer(item.GetPVRTimerInfoTag());
-      if (!timer || URIUtils::PathEquals(item.GetPath(), CPVRTimersPath::PATH_ADDTIMER))
-        return false;
-
-      // As epg-based timers will get it's title from the epg tag, they should not be renamable.
-      if (timer->IsManual())
-      {
-        const std::shared_ptr<CPVRTimerType> timerType(timer->GetTimerType());
-        if (!timerType->IsReadOnly())
-          return true;
-      }
-
-      return false;
-    }
-
-    bool RenameTimer::Execute(const CFileItemPtr& item) const
-    {
-      return CServiceBroker::GetPVRManager().GUIActions()->RenameTimer(item);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
     // Delete timer
 
     std::string DeleteTimer::GetLabel(const CFileItem& item) const
@@ -683,27 +648,25 @@ namespace PVR
 
   CPVRContextMenuManager::CPVRContextMenuManager()
   {
-    m_items =
-    {
-      std::make_shared<CONTEXTMENUITEM::PlayEpgTag>(19190), /* Play programme */
-      std::make_shared<CONTEXTMENUITEM::PlayRecording>(19687), /* Play recording */
-      std::make_shared<CONTEXTMENUITEM::ShowInformation>(),
-      std::make_shared<CONTEXTMENUITEM::ShowChannelGuide>(19686), /* Channel guide */
-      std::make_shared<CONTEXTMENUITEM::FindSimilar>(19003), /* Find similar */
-      std::make_shared<CONTEXTMENUITEM::ToggleTimerState>(),
-      std::make_shared<CONTEXTMENUITEM::AddTimerRule>(19061), /* Add timer */
-      std::make_shared<CONTEXTMENUITEM::EditTimerRule>(),
-      std::make_shared<CONTEXTMENUITEM::DeleteTimerRule>(19295), /* Delete timer rule */
-      std::make_shared<CONTEXTMENUITEM::EditTimer>(),
-      std::make_shared<CONTEXTMENUITEM::RenameTimer>(118), /* Rename */
-      std::make_shared<CONTEXTMENUITEM::DeleteTimer>(),
-      std::make_shared<CONTEXTMENUITEM::StartRecording>(264), /* Record */
-      std::make_shared<CONTEXTMENUITEM::StopRecording>(19059), /* Stop recording */
-      std::make_shared<CONTEXTMENUITEM::EditRecording>(21450), /* Edit */
-      std::make_shared<CONTEXTMENUITEM::RenameRecording>(118), /* Rename */
-      std::make_shared<CONTEXTMENUITEM::DeleteRecording>(),
-      std::make_shared<CONTEXTMENUITEM::UndeleteRecording>(19290), /* Undelete */
-      std::make_shared<CONTEXTMENUITEM::AddReminder>(826), /* Set reminder */
+    m_items = {
+        std::make_shared<CONTEXTMENUITEM::PlayEpgTag>(19190), /* Play programme */
+        std::make_shared<CONTEXTMENUITEM::PlayRecording>(19687), /* Play recording */
+        std::make_shared<CONTEXTMENUITEM::ShowInformation>(),
+        std::make_shared<CONTEXTMENUITEM::ShowChannelGuide>(19686), /* Channel guide */
+        std::make_shared<CONTEXTMENUITEM::FindSimilar>(19003), /* Find similar */
+        std::make_shared<CONTEXTMENUITEM::ToggleTimerState>(),
+        std::make_shared<CONTEXTMENUITEM::AddTimerRule>(19061), /* Add timer */
+        std::make_shared<CONTEXTMENUITEM::EditTimerRule>(),
+        std::make_shared<CONTEXTMENUITEM::DeleteTimerRule>(19295), /* Delete timer rule */
+        std::make_shared<CONTEXTMENUITEM::EditTimer>(),
+        std::make_shared<CONTEXTMENUITEM::DeleteTimer>(),
+        std::make_shared<CONTEXTMENUITEM::StartRecording>(264), /* Record */
+        std::make_shared<CONTEXTMENUITEM::StopRecording>(19059), /* Stop recording */
+        std::make_shared<CONTEXTMENUITEM::EditRecording>(21450), /* Edit */
+        std::make_shared<CONTEXTMENUITEM::DeleteRecording>(),
+        std::make_shared<CONTEXTMENUITEM::UndeleteRecording>(19290), /* Undelete */
+        std::make_shared<CONTEXTMENUITEM::DeleteWatchedRecordings>(19327), /* Delete watched */
+        std::make_shared<CONTEXTMENUITEM::AddReminder>(826), /* Set reminder */
     };
   }
 
